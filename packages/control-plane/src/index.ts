@@ -91,7 +91,7 @@ async function main() {
 
     const publicBase = PUBLIC_BASE_URL.replace(/\/$/, "");
     const edgeBase = EDGE_BASE_URL.replace(/\/$/, "");
-    const publicUrl = `${publicBase}/?slug=${slug}`;
+    const publicUrl = `${publicBase}/s/${slug}`;
     const edgeUrl = `${edgeBase}/tunnel`;
     const ownerUrl = `${publicBase}/.wormkey/owner?slug=${slug}&token=${ownerToken}`;
     const overlayScriptUrl = `${publicBase}/.wormkey/overlay.js?slug=${slug}`;

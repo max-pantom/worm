@@ -111,16 +111,38 @@ func extractSlugFromHost(host string) string {
 }
 
 func resolveSlug(r *http.Request) string {
-	// 1. Query fallback (?slug=)
+	// 1. Path-based: /s/:slug (no wildcard TLS needed)
+	if strings.HasPrefix(r.URL.Path, "/s/") {
+		rest := r.URL.Path[3:] // skip "/s/"
+		idx := strings.Index(rest, "/")
+		var slug string
+		if idx < 0 {
+			slug = rest
+			rest = ""
+		} else {
+			slug = rest[:idx]
+			rest = rest[idx:]
+		}
+		if slug != "" {
+			if rest == "" {
+				r.URL.Path = "/"
+			} else {
+				r.URL.Path = rest
+			}
+			r.URL.RawPath = ""
+			return slug
+		}
+	}
+	// 2. Query fallback (?slug=)
 	slug := r.URL.Query().Get("slug")
 	if slug != "" {
 		return slug
 	}
-	// 2. Cookie (for asset requests like /icons/x.png)
+	// 3. Cookie (for asset requests like /icons/x.png)
 	if c, err := r.Cookie("wormkey"); err == nil && c.Value != "" {
 		return c.Value
 	}
-	// 3. Host-based (slug.wormkey.run)
+	// 4. Host-based (slug.wormkey.run)
 	if s := extractSlugFromHost(r.Host); s != "" {
 		return s
 	}
@@ -509,7 +531,7 @@ func main() {
 		}
 		setCookie(w, "wormkey", slug, false)
 		setCookie(w, "wormkey_owner", token, true)
-		http.Redirect(w, r, "/?slug="+slug, http.StatusFound)
+		http.Redirect(w, r, "/s/"+slug, http.StatusFound)
 	})
 
 	mux.HandleFunc("/.wormkey/me", func(w http.ResponseWriter, r *http.Request) {
@@ -801,6 +823,7 @@ func handleTunnel(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 
 func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		slugFromPath := strings.HasPrefix(r.URL.Path, "/s/")
 		slug := resolveSlug(r)
 		if slug == "" {
 			writeWormholeNotActive(w)
@@ -875,7 +898,7 @@ func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 		done := make(chan struct{})
 		flusher, _ := w.(http.Flusher)
 		setCookie := ""
-		if r.URL.Query().Get("slug") != "" || extractSlugFromHost(r.Host) == slug {
+		if slugFromPath || r.URL.Query().Get("slug") != "" || extractSlugFromHost(r.Host) == slug {
 			setCookie = slug
 		}
 		tc.activeStreams.Add(1)
