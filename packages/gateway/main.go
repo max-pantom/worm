@@ -308,126 +308,18 @@ func main() {
 	tunnels := sync.Map{} // slug string -> *tunnelConn
 	controlPlaneURL := getEnv("WORMKEY_CONTROL_PLANE", "http://localhost:3001")
 
-	// Health check (no control plane dependency)
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+
+	// Health
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		w.Write([]byte("ok"))
 	})
 
-	// Tunnel endpoint: CLI connects here
-	http.HandleFunc("/tunnel", func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Upgrade") != "websocket" {
-			http.Error(w, "WebSocket required", 400)
-			return
-		}
+	// Tunnel websocket endpoint
+	mux.HandleFunc("/tunnel", handleTunnel(&tunnels, controlPlaneURL))
 
-		token := r.Header.Get("Authorization")
-		if token == "" || !strings.HasPrefix(token, "Bearer ") {
-			http.Error(w, "Missing or invalid token", 401)
-			return
-		}
-		rawToken := strings.TrimSpace(token[7:])
-		slug := rawToken
-		ownerToken := ""
-		if dot := strings.IndexByte(rawToken, '.'); dot > 0 {
-			slug = rawToken[:dot]
-			if dot+1 < len(rawToken) {
-				ownerToken = rawToken[dot+1:]
-			}
-		}
-		if len(slug) > 64 {
-			slug = slug[:64]
-		}
-
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			log.Printf("Upgrade error: %v", err)
-			return
-		}
-
-		tc := &tunnelConn{conn: conn, slug: slug, ownerToken: ownerToken, viewers: map[string]*viewerState{}, kickedViewers: map[string]struct{}{}}
-		tc.policy = tunnelPolicy{Public: true, MaxConcurrentViewers: 20}
-		hydrateFromControlPlane(controlPlaneURL, slug, tc)
-		tunnels.Store(slug, tc)
-		defer func() {
-			tunnels.Delete(slug)
-			conn.Close()
-		}()
-
-		log.Printf("Tunnel connected: %s", slug)
-
-		for {
-			_, data, err := conn.ReadMessage()
-			if err != nil {
-				break
-			}
-			if len(data) < 5 {
-				continue
-			}
-			ftype := data[0]
-			streamID := binary.BigEndian.Uint32(data[1:5])
-			payload := data[5:]
-
-			switch ftype {
-			case FramePong:
-				// keepalive ack
-			case FrameResponseHdrs:
-				if ctx, ok := tc.streams.Load(streamID); ok {
-					sc := ctx.(*streamCtx)
-					lines := bytes.Split(payload, []byte("\r\n"))
-					if len(lines) > 0 {
-						// Set all headers BEFORE WriteHeader (Go ignores Header.Set after)
-						status := 200
-						parts := bytes.SplitN(lines[0], []byte(" "), 3)
-						if len(parts) >= 2 {
-							fmt.Sscanf(string(parts[1]), "%d", &status)
-						}
-						for i := 1; i < len(lines); i++ {
-							line := lines[i]
-							if len(line) == 0 {
-								break
-							}
-							colon := bytes.IndexByte(line, ':')
-							if colon > 0 {
-								k := string(bytes.TrimSpace(line[:colon]))
-								v := string(bytes.TrimSpace(line[colon+1:]))
-								sc.w.Header().Set(k, v)
-							}
-						}
-						if sc.setCookie != "" {
-							sc.w.Header().Set("Set-Cookie", "wormkey="+sc.setCookie+"; Path=/; SameSite=Lax")
-						}
-						sc.w.WriteHeader(status)
-						if sc.flusher != nil {
-							sc.flusher.Flush()
-						}
-					}
-				}
-			case FrameStreamData:
-				if ctx, ok := tc.streams.Load(streamID); ok {
-					sc := ctx.(*streamCtx)
-					sc.w.Write(payload)
-					if sc.flusher != nil {
-						sc.flusher.Flush()
-					}
-				}
-			case FrameStreamEnd:
-				if ctx, ok := tc.streams.LoadAndDelete(streamID); ok {
-					sc := ctx.(*streamCtx)
-					tc.activeStreams.Add(-1)
-					close(sc.done)
-				}
-			case FrameStreamCancel:
-				if ctx, ok := tc.streams.LoadAndDelete(streamID); ok {
-					sc := ctx.(*streamCtx)
-					tc.activeStreams.Add(-1)
-					close(sc.done)
-				}
-			}
-		}
-	})
-
-	http.HandleFunc("/.wormkey/overlay.js", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/.wormkey/overlay.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 		js := `(function(){
   function buildUrl(path){
@@ -598,7 +490,7 @@ func main() {
 		_, _ = w.Write([]byte(js))
 	})
 
-	http.HandleFunc("/.wormkey/owner", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/.wormkey/owner", func(w http.ResponseWriter, r *http.Request) {
 		slug := resolveSlug(r)
 		if slug == "" {
 			http.Error(w, "Missing slug", 400)
@@ -620,7 +512,7 @@ func main() {
 		http.Redirect(w, r, "/?slug="+slug, http.StatusFound)
 	})
 
-	http.HandleFunc("/.wormkey/me", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/.wormkey/me", func(w http.ResponseWriter, r *http.Request) {
 		slug := resolveSlug(r)
 		owner := false
 		if slug != "" {
@@ -632,7 +524,7 @@ func main() {
 		_, _ = w.Write([]byte(`{"owner":` + strconv.FormatBool(owner) + `}`))
 	})
 
-	http.HandleFunc("/.wormkey/state", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/.wormkey/state", func(w http.ResponseWriter, r *http.Request) {
 		slug := resolveSlug(r)
 		val, ok := tunnels.Load(slug)
 		if !ok {
@@ -661,7 +553,7 @@ func main() {
 		_ = json.NewEncoder(w).Encode(out)
 	})
 
-	http.HandleFunc("/.wormkey/policy", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/.wormkey/policy", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", 405)
 			return
@@ -699,7 +591,7 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "policy": policy})
 	})
 
-	http.HandleFunc("/.wormkey/kick", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/.wormkey/kick", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", 405)
 			return
@@ -729,7 +621,7 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "viewerId": viewerID})
 	})
 
-	http.HandleFunc("/.wormkey/rotate-password", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/.wormkey/rotate-password", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", 405)
 			return
@@ -755,7 +647,7 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "password": pw})
 	})
 
-	http.HandleFunc("/.wormkey/close", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/.wormkey/close", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", 405)
 			return
@@ -778,22 +670,148 @@ func main() {
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
 	})
 
-	// Public HTTP: *.wormkey.run -> route to tunnel
-	// Slug from: ?slug=, cookie, or host (slug.wormkey.run)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	// Everything else should proxy
+	mux.HandleFunc("/", handleProxy(&tunnels, controlPlaneURL))
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3002" // local fallback only
+	}
+	addr := "0.0.0.0:" + port
+	log.Println("listening on", addr)
+	log.Fatal(http.ListenAndServe(addr, mux))
+}
+
+func (tc *tunnelConn) writeFrame(data []byte) error {
+	tc.writeMu.Lock()
+	defer tc.writeMu.Unlock()
+	return tc.conn.WriteMessage(websocket.BinaryMessage, data)
+}
+
+func getEnv(k, d string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return d
+}
+
+func handleTunnel(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Upgrade") != "websocket" {
+			http.Error(w, "WebSocket required", 400)
+			return
+		}
+		token := r.Header.Get("Authorization")
+		if token == "" || !strings.HasPrefix(token, "Bearer ") {
+			http.Error(w, "Missing or invalid token", 401)
+			return
+		}
+		rawToken := strings.TrimSpace(token[7:])
+		slug := rawToken
+		ownerToken := ""
+		if dot := strings.IndexByte(rawToken, '.'); dot > 0 {
+			slug = rawToken[:dot]
+			if dot+1 < len(rawToken) {
+				ownerToken = rawToken[dot+1:]
+			}
+		}
+		if len(slug) > 64 {
+			slug = slug[:64]
+		}
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			log.Printf("Upgrade error: %v", err)
+			return
+		}
+		tc := &tunnelConn{conn: conn, slug: slug, ownerToken: ownerToken, viewers: map[string]*viewerState{}, kickedViewers: map[string]struct{}{}}
+		tc.policy = tunnelPolicy{Public: true, MaxConcurrentViewers: 20}
+		hydrateFromControlPlane(controlPlaneURL, slug, tc)
+		tunnels.Store(slug, tc)
+		defer func() {
+			tunnels.Delete(slug)
+			conn.Close()
+		}()
+		log.Printf("Tunnel connected: %s", slug)
+		for {
+			_, data, err := conn.ReadMessage()
+			if err != nil {
+				break
+			}
+			if len(data) < 5 {
+				continue
+			}
+			ftype := data[0]
+			streamID := binary.BigEndian.Uint32(data[1:5])
+			payload := data[5:]
+			switch ftype {
+			case FramePong:
+			case FrameResponseHdrs:
+				if ctx, ok := tc.streams.Load(streamID); ok {
+					sc := ctx.(*streamCtx)
+					lines := bytes.Split(payload, []byte("\r\n"))
+					if len(lines) > 0 {
+						status := 200
+						parts := bytes.SplitN(lines[0], []byte(" "), 3)
+						if len(parts) >= 2 {
+							fmt.Sscanf(string(parts[1]), "%d", &status)
+						}
+						for i := 1; i < len(lines); i++ {
+							line := lines[i]
+							if len(line) == 0 {
+								break
+							}
+							colon := bytes.IndexByte(line, ':')
+							if colon > 0 {
+								k := string(bytes.TrimSpace(line[:colon]))
+								v := string(bytes.TrimSpace(line[colon+1:]))
+								sc.w.Header().Set(k, v)
+							}
+						}
+						if sc.setCookie != "" {
+							sc.w.Header().Set("Set-Cookie", "wormkey="+sc.setCookie+"; Path=/; SameSite=Lax")
+						}
+						sc.w.WriteHeader(status)
+						if sc.flusher != nil {
+							sc.flusher.Flush()
+						}
+					}
+				}
+			case FrameStreamData:
+				if ctx, ok := tc.streams.Load(streamID); ok {
+					sc := ctx.(*streamCtx)
+					sc.w.Write(payload)
+					if sc.flusher != nil {
+						sc.flusher.Flush()
+					}
+				}
+			case FrameStreamEnd:
+				if ctx, ok := tc.streams.LoadAndDelete(streamID); ok {
+					tc.activeStreams.Add(-1)
+					close(ctx.(*streamCtx).done)
+				}
+			case FrameStreamCancel:
+				if ctx, ok := tc.streams.LoadAndDelete(streamID); ok {
+					tc.activeStreams.Add(-1)
+					close(ctx.(*streamCtx).done)
+				}
+			}
+		}
+	}
+}
+
+func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		slug := resolveSlug(r)
 		if slug == "" {
 			writeWormholeNotActive(w)
 			return
 		}
-
 		val, ok := tunnels.Load(slug)
 		if !ok {
 			writeWormholeNotActive(w)
 			return
 		}
 		tc := val.(*tunnelConn)
-
 		owner := isOwner(r, tc)
 		viewerID := ""
 		if !owner {
@@ -841,36 +859,27 @@ func main() {
 				}
 			}
 		}
-
 		streamID := tc.streamID.Add(1)
-
-		// Build OPEN_STREAM payload: "GET /path HTTP/1.1\r\nHost: ...\r\n..."
 		var buf bytes.Buffer
 		fmt.Fprintf(&buf, "%s %s HTTP/1.1\r\n", r.Method, r.URL.RequestURI())
 		r.Header.Write(&buf)
 		buf.WriteString("\r\n")
-
 		frame := make([]byte, 5+buf.Len())
 		frame[0] = FrameOpenStream
 		binary.BigEndian.PutUint32(frame[1:5], streamID)
 		copy(frame[5:], buf.Bytes())
-
 		if err := tc.writeFrame(frame); err != nil {
 			http.Error(w, "Tunnel write failed", 502)
 			return
 		}
-
 		done := make(chan struct{})
 		flusher, _ := w.(http.Flusher)
-		// Set cookie when slug came from URL (query or host) so asset requests get routed
 		setCookie := ""
 		if r.URL.Query().Get("slug") != "" || extractSlugFromHost(r.Host) == slug {
 			setCookie = slug
 		}
 		tc.activeStreams.Add(1)
 		tc.streams.Store(streamID, &streamCtx{w: w, done: done, flusher: flusher, setCookie: setCookie})
-
-		// Stream request body to tunnel (or send STREAM_END immediately for GET)
 		sendStreamEnd := func() {
 			f := make([]byte, 5)
 			f[0] = FrameStreamEnd
@@ -906,28 +915,6 @@ func main() {
 			}
 			sendStreamEnd()
 		}
-
 		<-done
-	})
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "3002" // local fallback only
 	}
-	addr := "0.0.0.0:" + port
-	log.Println("listening on", addr)
-	log.Fatal(http.ListenAndServe(addr, nil))
-}
-
-func (tc *tunnelConn) writeFrame(data []byte) error {
-	tc.writeMu.Lock()
-	defer tc.writeMu.Unlock()
-	return tc.conn.WriteMessage(websocket.BinaryMessage, data)
-}
-
-func getEnv(k, d string) string {
-	if v := os.Getenv(k); v != "" {
-		return v
-	}
-	return d
 }
