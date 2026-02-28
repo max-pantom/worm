@@ -61,6 +61,34 @@ Provide the script URL via a meta tag:
 <meta name="wormkey-overlay-url" content="http://localhost:3002/.wormkey/overlay.js?slug=quiet-lime-82" />
 ```
 
+**Or use the React component** (Next.js / React):
+
+```bash
+npm install wormkey
+```
+
+```tsx
+// app/layout.tsx
+import { WormkeyOverlay } from "wormkey";
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        {children}
+        <WormkeyOverlay
+          gatewayUrl={process.env.NEXT_PUBLIC_WORMKEY_GATEWAY_URL ?? "https://wormkey.run"}
+        />
+      </body>
+    </html>
+  );
+}
+```
+
+- `gatewayUrl` – Gateway base (default: `NEXT_PUBLIC_WORMKEY_GATEWAY_URL` or `https://wormkey.run`)
+- `slug` – Optional; when viewing at `/s/:slug`, it’s read from the URL
+- `scriptUrl` – Optional; full script URL if you prefer to pass it directly
+
 ---
 
 ## Architecture
@@ -101,7 +129,8 @@ worm/
 ├── packages/
 │   ├── cli/             # wormkey npm package (Node/TypeScript)
 │   ├── control-plane/   # Session API (Node/Fastify)
-│   └── gateway/         # Edge gateway (Go)
+│   ├── gateway/         # Edge gateway (Go)
+│   └── overlay/         # Overlay helpers (React, Express, auto)
 └── README.md
 ```
 
