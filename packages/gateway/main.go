@@ -904,9 +904,13 @@ func main() {
 		<-done
 	})
 
-	port := getEnv("PORT", "3002")
-	log.Printf("Gateway listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3002"
+	}
+	addr := "0.0.0.0:" + port
+	log.Printf("Gateway listening on %s", addr)
+	log.Fatal(http.ListenAndServe(addr, nil))
 }
 
 func (tc *tunnelConn) writeFrame(data []byte) error {
