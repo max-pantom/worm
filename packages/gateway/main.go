@@ -906,11 +906,13 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "3002"
+		port = "3002" // fallback for local only
 	}
 	addr := "0.0.0.0:" + port
 	log.Printf("Gateway listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, nil))
+	if err := http.ListenAndServe(addr, nil); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (tc *tunnelConn) writeFrame(data []byte) error {
