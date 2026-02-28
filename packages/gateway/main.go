@@ -308,6 +308,12 @@ func main() {
 	tunnels := sync.Map{} // slug string -> *tunnelConn
 	controlPlaneURL := getEnv("WORMKEY_CONTROL_PLANE", "http://localhost:3001")
 
+	// Health check (no control plane dependency)
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+		w.Write([]byte("ok"))
+	})
+
 	// Tunnel endpoint: CLI connects here
 	http.HandleFunc("/tunnel", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Upgrade") != "websocket" {
@@ -906,11 +912,11 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "3002"
+		port = "3002" // local fallback only
 	}
 	addr := "0.0.0.0:" + port
 	log.Println("listening on", addr)
-	http.ListenAndServe(addr, nil)
+	log.Fatal(http.ListenAndServe(addr, nil))
 }
 
 func (tc *tunnelConn) writeFrame(data []byte) error {
