@@ -5,14 +5,18 @@
  */
 
 import "dotenv/config";
+import { createRequire } from "module";
 import { program } from "commander";
 import { TunnelClient } from "./tunnel.js";
 import { createSession } from "./api.js";
 
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json");
+
 program
   .name("wormkey")
   .description("Open a wormhole to your localhost")
-  .version("0.1.1");
+  .version(pkg.version);
 
 program
   .command("http <port>")

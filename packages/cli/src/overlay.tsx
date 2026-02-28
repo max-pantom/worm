@@ -24,7 +24,10 @@ export function WormkeyOverlay({ scriptUrl, gatewayUrl, slug: slugProp }: Wormke
       (typeof window !== "undefined" && window.location.pathname.match(/^\/s\/([^/]+)/)?.[1]);
     const base = gatewayUrl?.replace(/\/$/, "") ?? process.env.NEXT_PUBLIC_WORMKEY_GATEWAY_URL;
     const url =
-      scriptUrl ?? (base && slug ? `${base}/.wormkey/overlay.js?slug=${slug}` : null);
+      scriptUrl ??
+      (base && slug
+        ? `${base}/.wormkey/overlay.js?slug=${slug}&v=2`
+        : null);
 
     if (!url) return;
     if (document.querySelector('[data-wormkey-overlay="1"]')) return;
