@@ -39,6 +39,14 @@ async function main() {
 
   await fastify.register(cors, { origin: true });
 
+  fastify.get("/", async (_req, reply) => {
+    return reply.send({ status: "control plane alive" });
+  });
+
+  fastify.get("/health", async (_req, reply) => {
+    return reply.send("ok");
+  });
+
   // In-memory session store (v0)
   const sessions = new Map<string, Session>();
 
