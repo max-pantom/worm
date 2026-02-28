@@ -138,7 +138,10 @@ func resolveSlug(r *http.Request) string {
 	if slug != "" {
 		return slug
 	}
-	// 3. Cookie (for asset requests like /icons/x.png)
+	// 3. Cookie (for asset requests like /_next/... or /assets/...)
+	if c, err := r.Cookie("wormkey_slug"); err == nil && c.Value != "" {
+		return c.Value
+	}
 	if c, err := r.Cookie("wormkey"); err == nil && c.Value != "" {
 		return c.Value
 	}
@@ -529,6 +532,7 @@ func main() {
 			http.Error(w, "Invalid owner token", 401)
 			return
 		}
+		setCookie(w, "wormkey_slug", slug, false)
 		setCookie(w, "wormkey", slug, false)
 		setCookie(w, "wormkey_owner", token, true)
 		http.Redirect(w, r, "/s/"+slug, http.StatusFound)
@@ -804,7 +808,8 @@ func handleTunnel(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 							}
 						}
 						if sc.setCookie != "" {
-							sc.w.Header().Set("Set-Cookie", "wormkey="+sc.setCookie+"; Path=/; SameSite=Lax")
+							// wormkey_slug ensures asset requests (/_next/..., /assets/...) route correctly
+							sc.w.Header().Add("Set-Cookie", "wormkey_slug="+sc.setCookie+"; Path=/; SameSite=Lax")
 						}
 						sc.w.WriteHeader(status)
 						if sc.flusher != nil {
