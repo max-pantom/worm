@@ -31,11 +31,15 @@ function randomToken(): string {
   return s;
 }
 
-const EDGE_URL = process.env.WORMKEY_EDGE_URL ?? "http://localhost:3002";
-const BASE_DOMAIN = process.env.WORMKEY_BASE_DOMAIN ?? "wormkey.run";
+const PUBLIC_BASE_URL =
+  process.env.WORMKEY_PUBLIC_BASE_URL ?? "http://localhost:3002";
+const EDGE_BASE_URL =
+  process.env.WORMKEY_EDGE_BASE_URL ?? "ws://localhost:3002";
 
 async function main() {
   const fastify = Fastify({ logger: true });
+
+  fastify.log.info({ PUBLIC_BASE_URL, EDGE_BASE_URL }, "Resolved Wormkey base URLs");
 
   await fastify.register(cors, { origin: true });
 
@@ -85,20 +89,12 @@ async function main() {
     const sessionToken = `${slug}.${ownerToken}`;
     const sessionId = `sess_${randomToken()}`;
 
-    const edgeBase = EDGE_URL.replace(/\/$/, "");
-    const edgeUrl = `${edgeBase.replace(/^http/, "ws")}/tunnel`;
-    const publicUrl =
-      BASE_DOMAIN === "wormkey.run" && !EDGE_URL.includes("localhost")
-        ? `https://${slug}.${BASE_DOMAIN}`
-        : `${EDGE_URL}?slug=${slug}`;
-    const ownerUrl =
-      BASE_DOMAIN === "wormkey.run" && !EDGE_URL.includes("localhost")
-        ? `https://${slug}.${BASE_DOMAIN}/.wormkey/owner?token=${ownerToken}`
-        : `${edgeBase}/.wormkey/owner?slug=${slug}&token=${ownerToken}`;
-    const overlayScriptUrl =
-      BASE_DOMAIN === "wormkey.run" && !EDGE_URL.includes("localhost")
-        ? `https://${slug}.${BASE_DOMAIN}/.wormkey/overlay.js`
-        : `${edgeBase}/.wormkey/overlay.js?slug=${slug}`;
+    const publicBase = PUBLIC_BASE_URL.replace(/\/$/, "");
+    const edgeBase = EDGE_BASE_URL.replace(/\/$/, "");
+    const publicUrl = `${publicBase}/?slug=${slug}`;
+    const edgeUrl = `${edgeBase}/tunnel`;
+    const ownerUrl = `${publicBase}/.wormkey/owner?slug=${slug}&token=${ownerToken}`;
+    const overlayScriptUrl = `${publicBase}/.wormkey/overlay.js?slug=${slug}`;
 
     const expiresMs =
       expiresIn.endsWith("m")

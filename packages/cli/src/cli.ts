@@ -4,12 +4,10 @@
  * Open a wormhole to your localhost.
  */
 
+import "dotenv/config";
 import { program } from "commander";
 import { TunnelClient } from "./tunnel.js";
 import { createSession } from "./api.js";
-
-const DEFAULT_CONTROL_PLANE = process.env.WORMKEY_CONTROL_PLANE ?? "http://localhost:3001";
-const DEFAULT_EDGE = process.env.WORMKEY_EDGE ?? "http://localhost:3002";
 
 program
   .name("wormkey")
@@ -21,8 +19,8 @@ program
   .description("Expose local port via wormhole")
   .option("--auth", "Enable basic auth (prints username/password)")
   .option("--expires <duration>", "Session expiry (e.g. 30m, 1h, 24h)", "24h")
-  .option("--control-plane <url>", "Control plane URL", DEFAULT_CONTROL_PLANE)
-  .option("--edge <url>", "Edge gateway URL (for local dev)", DEFAULT_EDGE)
+  .option("--control-plane <url>", "Control plane URL")
+  .option("--edge <url>", "Edge tunnel URL")
   .action(async (port: string, opts) => {
     const portNum = parseInt(port, 10);
     if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
@@ -31,7 +29,13 @@ program
     }
 
     try {
-      const session = await createSession(opts.controlPlane, {
+      const controlPlane =
+        process.env.WORMKEY_CONTROL_PLANE_URL ??
+        opts.controlPlane ??
+        "http://localhost:3001";
+      console.error("Control plane:", controlPlane);
+
+      const session = await createSession(controlPlane, {
         port: portNum,
         auth: opts.auth,
         expires: opts.expires,
@@ -44,7 +48,12 @@ program
         console.log();
       }
 
-      const edgeUrl = opts.edge !== DEFAULT_EDGE ? opts.edge : session.edgeUrl;
+      const edgeUrl =
+        process.env.WORMKEY_EDGE_URL ??
+        opts.edge ??
+        session.edgeUrl ??
+        "ws://localhost:3002/tunnel";
+      console.error("Edge tunnel:", edgeUrl);
       const tunnel = new TunnelClient({
         localPort: portNum,
         edgeUrl,
