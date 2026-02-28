@@ -1,0 +1,9 @@
+{
+  "name": "wormkey-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/cli",
+    "packages/control-plane",
+    "packages/overlay"
+  ]
+}
