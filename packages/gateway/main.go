@@ -821,8 +821,6 @@ func handleTunnel(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 						if sc.setCookie != "" {
 							// wormkey_slug ensures asset requests (/_next/..., /assets/...) route correctly
 							sc.w.Header().Add("Set-Cookie", "wormkey_slug="+sc.setCookie+"; Path=/; SameSite=Lax")
-							// Prevent caching so cookie is always set on fresh load
-							sc.w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 						}
 						sc.w.WriteHeader(status)
 						if sc.flusher != nil {
