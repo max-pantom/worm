@@ -347,9 +347,15 @@ func main() {
 	mux.HandleFunc("/.wormkey/overlay.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 		js := `(function(){
+  function getSlug(){
+    var s = new URLSearchParams(window.location.search).get('slug');
+    if (s) return s;
+    var m = window.location.pathname.match(/^\/s\/([^\/]+)/);
+    return m ? m[1] : null;
+  }
   function buildUrl(path){
     var u = new URL(path, window.location.origin);
-    var slug = new URLSearchParams(window.location.search).get('slug');
+    var slug = getSlug();
     if (slug) u.searchParams.set('slug', slug);
     return u.toString();
   }
@@ -358,7 +364,7 @@ func main() {
     return fetch(buildUrl(path), Object.assign({credentials:'include'}, opts || {}));
   }
 
-  req('/.wormkey/me').then(function(r){return r.json();}).then(function(me){
+  req('/.wormkey/me').then(function(r){ if (!r.ok) return; return r.json(); }).then(function(me){
     if (!me || !me.owner) return;
     var root = document.createElement('div');
     root.id = 'wormkey-bar';
@@ -510,7 +516,7 @@ func main() {
 
     document.body.appendChild(root);
     refresh();
-  });
+  }).catch(function(){});
 })();`
 		_, _ = w.Write([]byte(js))
 	})
