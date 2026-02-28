@@ -347,6 +347,10 @@ func main() {
 	mux.HandleFunc("/.wormkey/overlay.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 		js := `(function(){
+  var gatewayOrigin = (function(){
+    var s = document.currentScript && document.currentScript.src;
+    return s ? new URL(s).origin : window.location.origin;
+  })();
   function getSlug(){
     var s = new URLSearchParams(window.location.search).get('slug');
     if (s) return s;
@@ -354,7 +358,7 @@ func main() {
     return m ? m[1] : null;
   }
   function buildUrl(path){
-    var u = new URL(path, window.location.origin);
+    var u = new URL(path, gatewayOrigin);
     var slug = getSlug();
     if (slug) u.searchParams.set('slug', slug);
     return u.toString();
