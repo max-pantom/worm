@@ -23,38 +23,70 @@ export interface TunnelConfig {
   onStatus?: (msg: string) => void;
 }
 
+const PING_INTERVAL_MS = 25000;
+const PONG_TIMEOUT_MS = 30000;
+const HEARTBEAT_FAILURES_BEFORE_CLOSE = 2;
+const BACKOFF_MS = [1000, 2000, 5000, 10000];
+
 export class TunnelClient {
   private ws: WebSocket | null = null;
   private config: TunnelConfig;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setTimeout> | null = null;
+  private pongTimeout: ReturnType<typeof setTimeout> | null = null;
   private pendingStreams = new Map<number, { openPayload: Buffer; bodyChunks: Buffer[] }>();
+  private shouldRun = true;
+  private reconnectAttempt = 0;
+  private heartbeatFailures = 0;
+  private initialConnectResolved = false;
+  private connectPromise: Promise<void> | null = null;
+  private connectResolve: (() => void) | null = null;
 
   constructor(config: TunnelConfig) {
     this.config = config;
   }
 
   connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const url = this.config.edgeUrl.replace(/^http/, "ws");
-      this.ws = new WebSocket(url, {
-        headers: {
-          Authorization: `Bearer ${this.config.sessionToken}`,
-        },
-      });
+    if (this.connectPromise) {
+      return this.connectPromise;
+    }
 
-      this.ws.on("open", () => {
-        this.config.onStatus?.("Tunnel connected.");
-        this.startPing();
-        resolve();
-      });
+    this.shouldRun = true;
+    this.connectPromise = new Promise((resolve) => {
+      this.connectResolve = resolve;
+      this.connectLoop();
+    });
+    return this.connectPromise;
+  }
 
-      this.ws.on("message", (data: Buffer) => this.handleFrame(data));
-      this.ws.on("close", () => this.handleClose());
-      this.ws.on("error", (err: Error) => {
-        this.config.onStatus?.(`Tunnel error: ${err.message}`);
-        reject(err);
-      });
+  private connectLoop() {
+    if (!this.shouldRun) return;
+    this.openSocket();
+  }
+
+  private openSocket() {
+    const url = this.config.edgeUrl.replace(/^http/, "ws");
+    this.ws = new WebSocket(url, {
+      headers: {
+        Authorization: `Bearer ${this.config.sessionToken}`,
+      },
+    });
+
+    this.ws.on("open", () => {
+      this.reconnectAttempt = 0;
+      this.heartbeatFailures = 0;
+      this.config.onStatus?.("Tunnel connected.");
+      this.startHeartbeat();
+      if (!this.initialConnectResolved) {
+        this.initialConnectResolved = true;
+        this.connectResolve?.();
+      }
+    });
+
+    this.ws.on("message", (data: Buffer) => this.handleFrame(data));
+    this.ws.on("close", () => this.handleClose());
+    this.ws.on("error", (err: Error) => {
+      this.config.onStatus?.(`Tunnel error: ${err.message}`);
     });
   }
 
@@ -70,6 +102,11 @@ export class TunnelClient {
     }
 
     if (type === FrameType.PONG) {
+      this.heartbeatFailures = 0;
+      if (this.pongTimeout) {
+        clearTimeout(this.pongTimeout);
+        this.pongTimeout = null;
+      }
       return;
     }
 
@@ -141,30 +178,59 @@ export class TunnelClient {
     }
   }
 
-  private startPing() {
+  private startHeartbeat() {
+    this.stopHeartbeat();
     this.pingTimer = setInterval(() => {
       this.send(FrameType.PING, CONTROL_STREAM_ID);
-    }, 30000);
+      if (this.pongTimeout) clearTimeout(this.pongTimeout);
+      this.pongTimeout = setTimeout(() => {
+        this.pongTimeout = null;
+        this.heartbeatFailures += 1;
+        if (this.heartbeatFailures >= HEARTBEAT_FAILURES_BEFORE_CLOSE) {
+          this.config.onStatus?.("Heartbeat failed. Reconnecting...");
+          this.stopHeartbeat();
+          this.ws?.close();
+        }
+      }, PONG_TIMEOUT_MS);
+    }, PING_INTERVAL_MS);
   }
 
-  private handleClose() {
+  private stopHeartbeat() {
     if (this.pingTimer) {
       clearInterval(this.pingTimer);
       this.pingTimer = null;
     }
-    this.config.onStatus?.("Tunnel disconnected. Reconnecting in 2s...");
-    this.reconnectTimer = setTimeout(() => this.connect(), 2000);
+    if (this.pongTimeout) {
+      clearTimeout(this.pongTimeout);
+      this.pongTimeout = null;
+    }
+  }
+
+  private handleClose() {
+    this.ws = null;
+    this.stopHeartbeat();
+
+    if (!this.shouldRun) return;
+    if (this.reconnectTimer) return;
+
+    const delay = BACKOFF_MS[Math.min(this.reconnectAttempt, BACKOFF_MS.length - 1)];
+    this.reconnectAttempt += 1;
+
+    this.config.onStatus?.(`Tunnel disconnected. Reconnecting in ${Math.floor(delay / 1000)}s...`);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (!this.shouldRun) return;
+      this.connectLoop();
+    }, delay);
   }
 
   close() {
+    this.shouldRun = false;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    if (this.pingTimer) {
-      clearInterval(this.pingTimer);
-      this.pingTimer = null;
-    }
+    this.stopHeartbeat();
     this.ws?.close();
     this.ws = null;
   }

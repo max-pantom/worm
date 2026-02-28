@@ -12,7 +12,7 @@ import { createSession } from "./api.js";
 program
   .name("wormkey")
   .description("Open a wormhole to your localhost")
-  .version("0.1.0");
+  .version("0.1.1");
 
 program
   .command("http <port>")
@@ -21,6 +21,7 @@ program
   .option("--expires <duration>", "Session expiry (e.g. 30m, 1h, 24h)", "24h")
   .option("--control-plane <url>", "Control plane URL")
   .option("--edge <url>", "Edge tunnel URL")
+  .option("--local", "Use localhost control plane and edge")
   .action(async (port: string, opts) => {
     const portNum = parseInt(port, 10);
     if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
@@ -29,10 +30,19 @@ program
     }
 
     try {
+      const isLocal =
+        process.env.WORMKEY_ENV === "local" || opts.local === true;
+      const defaultControlPlane = isLocal
+        ? "http://localhost:3001"
+        : "https://wormkey-control-plane.onrender.com";
+      const defaultEdge = isLocal
+        ? "ws://localhost:3002/tunnel"
+        : "wss://wormkey.run/tunnel";
+
       const controlPlane =
         process.env.WORMKEY_CONTROL_PLANE_URL ??
         opts.controlPlane ??
-        "http://localhost:3001";
+        defaultControlPlane;
       console.error("Control plane:", controlPlane);
 
       const session = await createSession(controlPlane, {
@@ -52,7 +62,7 @@ program
         process.env.WORMKEY_EDGE_URL ??
         opts.edge ??
         session.edgeUrl ??
-        "ws://localhost:3002/tunnel";
+        defaultEdge;
       console.error("Edge tunnel:", edgeUrl);
       const tunnel = new TunnelClient({
         localPort: portNum,

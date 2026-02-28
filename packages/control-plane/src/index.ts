@@ -89,6 +89,7 @@ async function main() {
     const sessionToken = `${slug}.${ownerToken}`;
     const sessionId = `sess_${randomToken()}`;
 
+    // All URLs derived from env (canonical origin). Never use request host.
     const publicBase = PUBLIC_BASE_URL.replace(/\/$/, "");
     const edgeBase = EDGE_BASE_URL.replace(/\/$/, "");
     const publicUrl = `${publicBase}/s/${slug}`;

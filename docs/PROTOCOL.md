@@ -66,6 +66,11 @@ When Edge detects `Upgrade: websocket` on incoming request:
 
 **PING/PONG:** StreamID = 0. Used for keepalive and connection health. No payload required.
 
+- CLI sends PING every 25s.
+- Gateway responds with PONG.
+- If CLI does not receive PONG within 30s of sending PING, counts as 1 heartbeat failure.
+- After 2 consecutive failures, CLI closes socket and triggers reconnect.
+
 ---
 
 ## Session Establishment
@@ -85,4 +90,4 @@ Before tunnel protocol:
 - Max concurrent streams per session: 100
 - Max request body size: 10MB
 - Idle timeout: 5 minutes (no PING/PONG or stream activity)
-- Reconnect: CLI may reconnect with same `sessionToken`; Edge rebinds slug to new connection
+- Reconnect: CLI reconnects with same `sessionToken` (no new session). Edge replaces slug→connection; old connection is closed.

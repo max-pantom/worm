@@ -328,7 +328,7 @@ func syncClose(controlPlaneURL, slug string) {
 func main() {
 	// In-memory: slug -> tunnel connection
 	tunnels := sync.Map{} // slug string -> *tunnelConn
-	controlPlaneURL := getEnv("WORMKEY_CONTROL_PLANE", "http://localhost:3001")
+	controlPlaneURL := getEnv("WORMKEY_CONTROL_PLANE", "https://wormkey-control-plane.onrender.com")
 
 	mux := http.NewServeMux()
 
@@ -748,9 +748,18 @@ func handleTunnel(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 		tc := &tunnelConn{conn: conn, slug: slug, ownerToken: ownerToken, viewers: map[string]*viewerState{}, kickedViewers: map[string]struct{}{}}
 		tc.policy = tunnelPolicy{Public: true, MaxConcurrentViewers: 20}
 		hydrateFromControlPlane(controlPlaneURL, slug, tc)
+		if existing, ok := tunnels.Load(slug); ok {
+			if prev, okPrev := existing.(*tunnelConn); okPrev && prev != tc {
+				_ = prev.conn.Close()
+			}
+		}
 		tunnels.Store(slug, tc)
 		defer func() {
-			tunnels.Delete(slug)
+			if current, ok := tunnels.Load(slug); ok {
+				if active, okActive := current.(*tunnelConn); okActive && active == tc {
+					tunnels.Delete(slug)
+				}
+			}
 			conn.Close()
 		}()
 		log.Printf("Tunnel connected: %s", slug)
@@ -766,6 +775,11 @@ func handleTunnel(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 			streamID := binary.BigEndian.Uint32(data[1:5])
 			payload := data[5:]
 			switch ftype {
+			case FramePing:
+				pong := make([]byte, 5)
+				pong[0] = FramePong
+				binary.BigEndian.PutUint32(pong[1:5], ControlStreamID)
+				_ = tc.writeFrame(pong)
 			case FramePong:
 			case FrameResponseHdrs:
 				if ctx, ok := tc.streams.Load(streamID); ok {

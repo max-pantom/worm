@@ -1,16 +1,26 @@
 {
   "name": "wormkey",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Open a wormhole to your localhost",
   "bin": {
-    "wormkey": "./dist/cli.js"
+    "wormkey": "dist/cli.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js"
   },
-  "keywords": ["tunnel", "localhost", "dev-tools"],
+  "keywords": [
+    "tunnel",
+    "localhost",
+    "dev-tools"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=18"
