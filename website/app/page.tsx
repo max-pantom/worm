@@ -61,7 +61,7 @@ export default function Layout({ children }) {
   return (
     <div className="min-h-dvh bg-[var(--bg)] text-[var(--fg)]">
       <main className="mx-auto max-w-xl px-6 pt-10 pb-16">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+        <div className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-4">
           <h1 className="text-xl font-semibold">
             <span className="text-[var(--fg)]">Wormkey</span>
             <span className="font-normal text-[var(--muted-fg)]">.run</span>
@@ -88,7 +88,7 @@ export default function Layout({ children }) {
             </div>
             */}
           </div>
-          <div className="flex items-center justify-end">
+          <div className="hidden md:flex items-center justify-end">
             <button
               type="button"
               onClick={() => setShakeTrigger((t) => t + 1)}
