@@ -1,3 +1,27 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --bg: #fafafa;
+  --fg: #171717;
+  --muted: #52525b;
+  --muted-fg: #71717a;
+  --border: #e4e4e7;
+  --code-bg: #f4f4f5;
+}
+
+.dark {
+  --bg: #161616;
+  --fg: #f4f4ef;
+  --muted: #52525b;
+  --muted-fg: #71717a;
+  --border: #27272a;
+  --code-bg: #1c1c1c;
+}
+
+body {
+  font-family: "Open Runde", system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--fg);
+}

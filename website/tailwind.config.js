@@ -4,9 +4,13 @@ module.exports = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
   ],
-  darkMode: "media",
+  darkMode: "class",
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        mono: ['"IBM Plex Mono"', "ui-monospace", "monospace"],
+      },
+    },
   },
   plugins: [],
 };
