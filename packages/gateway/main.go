@@ -89,6 +89,27 @@ type persistedSession struct {
 	Policy          tunnelPolicy  `json:"policy"`
 	KickedViewerIds []string      `json:"kickedViewerIds"`
 	ActiveViewers   []viewerState `json:"activeViewers"`
+	Closed          bool          `json:"closed"`
+}
+
+func fetchSession(controlPlaneURL, slug string) (persistedSession, int, error) {
+	if controlPlaneURL == "" {
+		return persistedSession{}, 0, fmt.Errorf("control plane url is empty")
+	}
+	url := strings.TrimRight(controlPlaneURL, "/") + "/sessions/by-slug/" + slug
+	resp, err := http.Get(url)
+	if err != nil {
+		return persistedSession{}, 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return persistedSession{}, resp.StatusCode, nil
+	}
+	var sess persistedSession
+	if err := json.NewDecoder(resp.Body).Decode(&sess); err != nil {
+		return persistedSession{}, resp.StatusCode, err
+	}
+	return sess, resp.StatusCode, nil
 }
 
 func randomSecret(n int) string {
@@ -242,17 +263,11 @@ func hydrateFromControlPlane(controlPlaneURL, slug string, tc *tunnelConn) {
 	if controlPlaneURL == "" {
 		return
 	}
-	url := strings.TrimRight(controlPlaneURL, "/") + "/sessions/by-slug/" + slug
-	resp, err := http.Get(url)
+	sess, status, err := fetchSession(controlPlaneURL, slug)
 	if err != nil {
 		return
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return
-	}
-	var sess persistedSession
-	if err := json.NewDecoder(resp.Body).Decode(&sess); err != nil {
+	if status != http.StatusOK {
 		return
 	}
 	if tc.ownerToken == "" && sess.OwnerToken != "" {
@@ -331,6 +346,7 @@ func syncClose(controlPlaneURL, slug string) {
 func main() {
 	// In-memory: slug -> tunnel connection
 	tunnels := sync.Map{} // slug string -> *tunnelConn
+	closedSlugs := sync.Map{}
 	controlPlaneURL := getEnv("WORMKEY_CONTROL_PLANE", "https://wormkey-control-plane.onrender.com")
 
 	mux := http.NewServeMux()
@@ -342,7 +358,7 @@ func main() {
 	})
 
 	// Tunnel websocket endpoint
-	mux.HandleFunc("/tunnel", handleTunnel(&tunnels, controlPlaneURL))
+	mux.HandleFunc("/tunnel", handleTunnel(&tunnels, &closedSlugs, controlPlaneURL))
 
 	mux.HandleFunc("/.wormkey/overlay.js", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
@@ -701,13 +717,14 @@ func main() {
 			return
 		}
 		tunnels.Delete(slug)
+		closedSlugs.Store(slug, struct{}{})
 		go syncClose(controlPlaneURL, slug)
 		_ = tc.conn.Close()
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
 	})
 
-	// Everything else should proxy
+	// Everything else proxies to tunnel (or shows "not connected" when no slug)
 	mux.HandleFunc("/", handleProxy(&tunnels, controlPlaneURL))
 
 	port := os.Getenv("PORT")
@@ -732,7 +749,7 @@ func getEnv(k, d string) string {
 	return d
 }
 
-func handleTunnel(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
+func handleTunnel(tunnels *sync.Map, closedSlugs *sync.Map, controlPlaneURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Upgrade") != "websocket" {
 			http.Error(w, "WebSocket required", 400)
@@ -754,6 +771,21 @@ func handleTunnel(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 		}
 		if len(slug) > 64 {
 			slug = slug[:64]
+		}
+		if _, closed := closedSlugs.Load(slug); closed {
+			http.Error(w, "Session closed", http.StatusGone)
+			return
+		}
+		if sess, status, err := fetchSession(controlPlaneURL, slug); err == nil && status == http.StatusOK {
+			if sess.Closed {
+				closedSlugs.Store(slug, struct{}{})
+				http.Error(w, "Session closed", http.StatusGone)
+				return
+			}
+			if sess.OwnerToken != "" && ownerToken != "" && sess.OwnerToken != ownerToken {
+				http.Error(w, "Invalid session token", http.StatusUnauthorized)
+				return
+			}
 		}
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {

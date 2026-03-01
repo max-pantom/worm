@@ -156,13 +156,11 @@ export class TunnelClient {
       }
       this.send(FrameType.RESPONSE_HEADERS, streamId, serializeResponseHeaders(statusCode, resHeadersObj));
 
-      const chunks: Buffer[] = [];
+      // Stream chunks as they arrive (don't buffer) so Next.js RSC and streaming responses render progressively
       for await (const chunk of resBody) {
-        chunks.push(Buffer.from(chunk));
-      }
-      const responseBody = Buffer.concat(chunks);
-      if (responseBody.length > 0) {
-        this.send(FrameType.STREAM_DATA, streamId, responseBody);
+        if (chunk && chunk.length > 0) {
+          this.send(FrameType.STREAM_DATA, streamId, Buffer.from(chunk));
+        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

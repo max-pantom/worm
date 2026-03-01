@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/s/:path*", "destination": "https://wormkey-gateway.onrender.com/s/:path*" },
+    { "source": "/tunnel", "destination": "https://wormkey-gateway.onrender.com/tunnel" },
+    { "source": "/.wormkey/:path*", "destination": "https://wormkey-gateway.onrender.com/.wormkey/:path*" }
+  ]
+}

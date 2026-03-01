@@ -41,7 +41,7 @@ program
         : "https://wormkey-control-plane.onrender.com";
       const defaultEdge = isLocal
         ? "ws://localhost:3002/tunnel"
-        : "wss://wormkey.run/tunnel";
+        : "wss://t.wormkey.run/tunnel";
 
       const controlPlane =
         process.env.WORMKEY_CONTROL_PLANE_URL ??
