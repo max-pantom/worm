@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
+import { WormMascot } from "./components/WormMascot";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import {
   oneDark,
@@ -11,6 +12,7 @@ import {
 export default function Home() {
   const [copied, setCopied] = useState<string | null>(null);
   const [demoBarVisible, setDemoBarVisible] = useState(false);
+  const [shakeTrigger, setShakeTrigger] = useState(0);
   const [npmVersion, setNpmVersion] = useState<string | null>(null);
   const year = useMemo(() => new Date().getFullYear(), []);
   const { theme, setTheme } = useTheme();
@@ -33,7 +35,14 @@ export default function Home() {
     }
   };
 
-  const installCmd = "npm i -g wormkey";
+  const installCmds = {
+    npm: "npm i -g wormkey",
+    pnpm: "pnpm add -g wormkey",
+    yarn: "yarn global add wormkey",
+    bun: "bun add -g wormkey",
+  } as const;
+  const [pkgManager, setPkgManager] = useState<keyof typeof installCmds>("npm");
+  const installCmd = installCmds[pkgManager];
   const quickCmd = "wormkey http 3000";
   const envBlock = `# optional overrides
 WORMKEY_CONTROL_PLANE_URL=https://wormkey-control-plane.onrender.com
@@ -51,21 +60,76 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-dvh bg-[var(--bg)] text-[var(--fg)]">
-      <main className="mx-auto max-w-xl px-6 py-16">
-        <h1 className="text-xl font-semibold">Wormkey</h1>
-        <p className="mt-2 text-sm leading-6 text-[var(--muted-fg)]">
+      <main className="mx-auto max-w-xl px-6 pt-10 pb-16">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+          <h1 className="text-xl font-semibold">
+            <span className="text-[var(--fg)]">Wormkey</span>
+            <span className="font-normal text-[var(--muted-fg)]">.run</span>
+          </h1>
+          <div className="flex flex-col items-center justify-center">
+            <WormMascot variant={2} className="opacity-90" shakeTrigger={shakeTrigger} />
+            {/* Color picker - variant 2 is main
+            <div className="mt-2 flex items-center gap-1.5">
+              <span className="text-[10px] text-[var(--muted-fg)]">mascot</span>
+              {([1, 2, 3, 4, 5, 6, 7] as WormVariant[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setMascotVariant(v)}
+                  className={`h-4 w-4 shrink-0 rounded-full transition-transform hover:scale-110 ${
+                    mascotVariant === v
+                      ? "ring-2 ring-[var(--fg)] ring-offset-2 ring-offset-[var(--bg)]"
+                      : ""
+                  }`}
+                  style={{ backgroundColor: MASCOT_VARIANT_SWATCHES[v] }}
+                  aria-label={`Variant ${v}`}
+                  title={`Variant ${v}`}
+                />
+              ))}
+            </div>
+            */}
+          </div>
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => setShakeTrigger((t) => t + 1)}
+              className="cursor-not-allowed rounded-lg px-4 py-2 text-sm font-normal text-[var(--fg)] opacity-50 transition-colors hover:bg-white/10 hover:opacity-100"
+              aria-disabled="true"
+              title="Blog coming soon"
+            >
+              Blog
+            </button>
+          </div>
+        </div>
+        <p className="mt-12 text-sm leading-6 text-[var(--muted-fg)]">
           Share your localhost in one command. No account. No dashboard. Just a
           link.
         </p>
 
-        <div className="mt-6 space-y-2">
-          <CodeBlock
-            value={installCmd}
-            language="bash"
-            copied={copied === "install"}
-            onCopy={() => copy(installCmd, "install")}
-            dark={theme !== "light"}
-          />
+        <div className="mt-8 space-y-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-1">
+              {(["npm", "pnpm", "yarn", "bun"] as const).map((pkg) => (
+                <button
+                  key={pkg}
+                  onClick={() => setPkgManager(pkg)}
+                  className={`rounded px-2.5 py-1 font-mono text-[11px] ${
+                    pkgManager === pkg
+                      ? "bg-[var(--code-bg)] text-[var(--fg)] shadow-[inset_0px_0px_0px_1px_rgba(59,59,59,0.1)]"
+                      : "text-[var(--muted-fg)] hover:text-[var(--fg)]"
+                  }`}
+                >
+                  {pkg}
+                </button>
+              ))}
+            </div>
+            <CodeBlock
+              value={installCmd}
+              language="bash"
+              copied={copied === "install"}
+              onCopy={() => copy(installCmd, "install")}
+              dark={theme !== "light"}
+            />
+          </div>
           <CodeBlock
             value={quickCmd}
             language="bash"
@@ -399,7 +463,7 @@ function CodeBlock({
   dark?: boolean;
 }) {
   return (
-    <div className="relative flex items-center justify-between gap-3 rounded border border-[var(--border)] bg-[var(--code-bg)] px-3 py-2">
+    <div className="relative flex items-start justify-between gap-3 self-stretch rounded-md bg-[var(--code-bg)] p-2.5 shadow-[inset_0px_0px_0px_1px_rgba(59,59,59,0.1)] transition-shadow focus-within:shadow-[inset_0px_0px_0px_1px_rgba(59,59,59,0.25)]">
       <div className="min-w-0 flex-1 overflow-x-auto">
         <SyntaxHighlighter
           language={language}
@@ -423,7 +487,7 @@ function CodeBlock({
       </div>
       <button
         onClick={onCopy}
-        className={`shrink-0 rounded px-2 py-1 font-mono text-[10px] ${
+        className={`shrink-0 font-mono text-[11px] transition-colors ${
           copied
             ? "text-[#60a5fa]"
             : "text-[var(--muted-fg)] hover:text-[var(--fg)]"
