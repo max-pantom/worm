@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   title: "Wormkey — Open a wormhole to your localhost",
   description:
     "Share your dev server instantly. A developer tool that exposes a local server to a secure public URL.",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
