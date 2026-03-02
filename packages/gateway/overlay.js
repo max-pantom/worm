@@ -53,14 +53,16 @@
     var wormkeyDownX = 0, wormkeyDownY = 0;
 
     var styleEl = document.createElement('style');
-    styleEl.textContent = '@keyframes tabbar-shield-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}#wormkey-overlay .tabbar-connected:hover .tabbar-shield{animation:tabbar-shield-spin .6s ease-in-out}#wormkey-overlay .tabbar-views .tabbar-eye{transform-origin:center;transition:transform .2s ease-out}#wormkey-overlay .tabbar-views:hover .tabbar-eye{transform:scaleY(.15)}#wormkey-overlay .tabbar-btn:hover{background:rgba(255,255,255,0.03)}#wormkey-overlay .tabbar-connected.tabbar-btn:hover,#wormkey-overlay .tabbar-views.tabbar-btn:hover{background:rgba(255,255,255,0.03)}@media(prefers-reduced-motion:reduce){#wormkey-overlay .tabbar-shield,#wormkey-overlay .tabbar-eye{animation:none!important;transition:none!important}}';
+    styleEl.textContent = '@keyframes tabbar-shield-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}#wormkey-overlay .tabbar-connected:hover .tabbar-shield{animation:tabbar-shield-spin .6s ease-in-out}#wormkey-overlay .tabbar-views .tabbar-eye{transform-origin:center;transition:transform .2s ease-out}#wormkey-overlay .tabbar-views:hover .tabbar-eye{transform:scaleY(.15)}#wormkey-overlay .tabbar-btn:hover{background:rgba(255,255,255,0.03)}#wormkey-overlay .tabbar-connected.tabbar-btn:hover,#wormkey-overlay .tabbar-views.tabbar-btn:hover{background:rgba(255,255,255,0.03)}@media(prefers-reduced-motion:reduce){#wormkey-overlay .tabbar-shield,#wormkey-overlay .tabbar-eye{animation:none!important;transition:none!important}}@media(max-width:480px){#wormkey-overlay{bottom:max(10px,env(safe-area-inset-bottom))!important;left:max(8px,env(safe-area-inset-left))!important;right:max(8px,env(safe-area-inset-right))!important;transform:none!important;width:auto!important;max-width:none!important}#wormkey-overlay #wormkey-panel{max-height:50vh;overflow-y:auto;-webkit-overflow-scrolling:touch}#wormkey-overlay .wormkey-bar{flex-wrap:wrap;height:auto;min-height:40px;padding:6px;gap:6px}#wormkey-overlay .wormkey-bar .tabbar-btn{padding:8px 10px;min-height:40px;font-size:11px;touch-action:manipulation}#wormkey-overlay .wormkey-bar>div:first-child{touch-action:none}#wormkey-overlay .wormkey-row p{font-size:11px;padding:8px}#wormkey-overlay .wormkey-row button{padding:8px 10px;font-size:11px;min-height:36px;touch-action:manipulation}#wormkey-overlay .wormkey-row .wormkey-copy-btn{min-width:36px;min-height:36px}}';
     document.head.appendChild(styleEl);
 
     var root = document.createElement('div');
     root.id = 'wormkey-overlay';
-    root.style.cssText = 'position:fixed;bottom:10px;left:50%;transform:translateX(-50%);z-index:2147483647;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;width:fit-content;min-width:0;max-width:calc(100vw - 20px);user-select:none';
+    root.style.cssText = 'position:fixed;bottom:max(10px,env(safe-area-inset-bottom,10px));left:50%;transform:translateX(-50%);z-index:2147483647;display:flex;flex-direction:column;justify-content:flex-end;gap:4px;width:fit-content;min-width:0;max-width:calc(100vw - 20px);user-select:none';
     var dragging = false, dx = 0, dy = 0;
+    function normEv(ev){ return ev.touches ? ev.touches[0] : ev; }
     function startDrag(ev){
+      ev = normEv(ev);
       dragging = true;
       wormkeyDownX = ev.clientX;
       wormkeyDownY = ev.clientY;
@@ -73,22 +75,30 @@
       dy = ev.clientY - rect.top;
       ev.preventDefault();
     }
-    document.addEventListener('mousemove', function(ev){
+    function onMove(ev){
       if (!dragging) return;
+      if (ev.touches) ev.preventDefault();
+      ev = (ev.touches && ev.touches[0]) ? ev.touches[0] : ev;
       root.style.left = Math.max(0, Math.min(ev.clientX - dx, window.innerWidth - root.offsetWidth)) + 'px';
       var h = root.offsetHeight;
       var newBottom = window.innerHeight - (ev.clientY - dy + h);
       root.style.bottom = Math.max(10, Math.min(newBottom, window.innerHeight - h)) + 'px';
       root.style.top = 'auto';
-    });
-    document.addEventListener('mouseup', function(ev){
-      if (dragging && (Math.abs(ev.clientX - wormkeyDownX) > 4 || Math.abs(ev.clientY - wormkeyDownY) > 4) === false) {
+    }
+    function onEnd(ev){
+      var e = (ev.changedTouches && ev.changedTouches[0]) ? ev.changedTouches[0] : ev;
+      if (dragging && (Math.abs(e.clientX - wormkeyDownX) > 4 || Math.abs(e.clientY - wormkeyDownY) > 4) === false) {
         panelOpen = false;
         panel.style.display = 'none';
+        setTab();
       }
       dragging = false;
       wormkeyHandle.style.cursor = 'grab';
-    });
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
 
     var panel = document.createElement('div');
     panel.id = 'wormkey-panel';
@@ -96,6 +106,7 @@
 
     function row(label, value, onCopy){
       var r = document.createElement('div');
+      r.className = 'wormkey-row';
       r.style.cssText = 'display:flex;align-items:center;padding:10px;border-radius:6px;background:rgba(255,255,255,0.02);overflow:hidden';
       var p = document.createElement('p');
       p.style.cssText = 'flex:1;min-width:0;margin:0;padding:10px;font:10px "Geist",ui-sans-serif,sans-serif;font-weight:500;color:rgba(255,255,255,0.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
@@ -103,6 +114,7 @@
       r.appendChild(p);
       if (onCopy && value) {
         var copyBtn = document.createElement('button');
+        copyBtn.className = 'wormkey-copy-btn';
         copyBtn.textContent = 'Copy';
         copyBtn.style.cssText = 'border:0;border-radius:6px;padding:4px 10px;margin-right:8px;cursor:pointer;background:rgba(255,255,255,0.15);color:#fff;font:10px "Geist",sans-serif;font-weight:500';
         copyBtn.onclick = function(){ copyToClipboard(value, function(ok){ copyBtn.textContent = ok ? 'Copied!' : 'Copy'; if(ok) setTimeout(function(){ copyBtn.textContent = 'Copy'; }, 1200); }); };
@@ -136,6 +148,7 @@
     function addLog(msg){ logEntries.push(msg); var el = document.createElement('div'); el.textContent = msg; el.style.marginBottom = '2px'; logsList.appendChild(el); logsList.scrollTop = logsList.scrollHeight; }
 
     var bar = document.createElement('div');
+    bar.className = 'wormkey-bar';
     bar.style.cssText = 'display:flex;gap:4px;align-items:stretch;padding:4px;border-radius:10px;background:rgba(109,109,109,0.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);font:10px "Geist",ui-sans-serif,system-ui,sans-serif;font-weight:500;color:#fff;height:40px';
 
     var wormkeyHandle = document.createElement('div');
@@ -143,10 +156,8 @@
     wormkeyHandle.className = 'tabbar-btn';
     wormkeyHandle.style.cssText = 'padding:0 10px;opacity:0.5;white-space:nowrap;display:flex;align-items:center;cursor:grab;user-select:none;border-radius:6px;background:transparent;border:0;transition:background .15s';
     wormkeyHandle.title = 'Drag to move; click to close panel';
-    wormkeyHandle.onmousedown = function(ev){
-      startDrag(ev);
-      wormkeyHandle.style.cursor = 'grabbing';
-    };
+    wormkeyHandle.onmousedown = function(ev){ startDrag(ev); wormkeyHandle.style.cursor = 'grabbing'; };
+    wormkeyHandle.ontouchstart = function(ev){ ev.preventDefault(); startDrag(ev); wormkeyHandle.style.cursor = 'grabbing'; };
     bar.appendChild(wormkeyHandle);
 
     var copyTabBtn = document.createElement('button');
@@ -205,20 +216,26 @@
     viewerWrap.onclick = function(){ activeTab = 'views'; panelOpen = true; panel.style.display = 'flex'; setTab(); };
     bar.appendChild(viewerWrap);
 
+    var mq = window.matchMedia('(max-width:480px)');
+    function setMobileLabels(){
+      var mobile = mq.matches;
+      copyTabBtn.textContent = mobile ? 'Copy' : 'Copy Url';
+      closeBtn.textContent = mobile ? 'Close' : 'Close Tunnel';
+    }
+    mq.addEventListener('change', setMobileLabels);
+    setMobileLabels();
+
     function setTab(){
       copyContent.style.display = activeTab === 'copy' ? 'flex' : 'none';
       logsContent.style.display = activeTab === 'logs' ? 'flex' : 'none';
       viewsContent.style.display = activeTab === 'views' ? 'flex' : 'none';
-      copyTabBtn.style.background = activeTab === 'copy' ? 'rgba(255,255,255,0.15)' : 'transparent';
-      copyTabBtn.style.opacity = activeTab === 'copy' ? '1' : '0.5';
-      logsTabBtn.style.background = activeTab === 'logs' ? 'rgba(255,255,255,0.15)' : 'transparent';
-      logsTabBtn.style.opacity = activeTab === 'logs' ? '1' : '0.5';
-      viewsTabBtn.style.background = activeTab === 'views' ? 'rgba(255,255,255,0.15)' : 'transparent';
-      viewsTabBtn.style.opacity = activeTab === 'views' ? '1' : '0.5';
-      statusWrap.style.background = activeTab === 'logs' ? 'rgba(255,255,255,0.15)' : 'transparent';
-      statusWrap.style.opacity = activeTab === 'logs' ? '1' : '0.5';
-      viewerWrap.style.background = activeTab === 'views' ? 'rgba(255,255,255,0.15)' : 'transparent';
-      viewerWrap.style.opacity = activeTab === 'views' ? '1' : '0.5';
+      var isActive = panelOpen;
+      copyTabBtn.style.background = isActive && activeTab === 'copy' ? 'rgba(255,255,255,0.15)' : 'transparent';
+      copyTabBtn.style.opacity = isActive && activeTab === 'copy' ? '1' : '0.5';
+      logsTabBtn.style.background = isActive && activeTab === 'logs' ? 'rgba(255,255,255,0.15)' : 'transparent';
+      logsTabBtn.style.opacity = isActive && activeTab === 'logs' ? '1' : '0.5';
+      viewsTabBtn.style.background = isActive && activeTab === 'views' ? 'rgba(255,255,255,0.15)' : 'transparent';
+      viewsTabBtn.style.opacity = isActive && activeTab === 'views' ? '1' : '0.5';
     }
 
     function refresh(){
