@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 
 type State = "idle" | "searching" | "hover";
 
-export type WormVariant = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export type WormVariant = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 export const MASCOT_VARIANT_SWATCHES: Record<WormVariant, string> = {
   1: "#D9D9D9",
@@ -14,6 +14,7 @@ export const MASCOT_VARIANT_SWATCHES: Record<WormVariant, string> = {
   5: "#FF2A2D",
   6: "#A855F7",
   7: "#000000",
+  8: "#F97316",
 };
 
 const COLOR_VARIANTS: Record<
@@ -25,14 +26,9 @@ const COLOR_VARIANTS: Record<
   3: { body: "#2067FF", eyes: "#000000", pupil: "#ffffff", teeth: "#FF67FF", antenna: "#248BF3" },
   4: { body: "#6BFF20", eyes: "#ffffff", pupil: "#000000", teeth: "#FFFF3C", antenna: "#9CF324" },
   5: { body: "#FF2A2D", eyes: "#000000", pupil: "#FFEA2A", teeth: "#ffffff", antenna: "#D90407" },
+  6: { body: "#A855F7", eyes: "#E9D5FF", pupil: "#581C87", teeth: "#F0ABFC", antenna: "#C084FC" },
   7: { body: "#000000", eyes: "#9B9B9B", pupil: "#FFFFFF", teeth: "#D9D9D9", antenna: "#010101" },
-  6: {
-    body: "#A855F7",
-    eyes: "#E9D5FF",
-    pupil: "#581C87",
-    teeth: "#F0ABFC",
-    antenna: "#C084FC",
-  },
+  8: { body: "#F97316", eyes: "#FED7AA", pupil: "#9A3412", teeth: "#FB923C", antenna: "#FDBA74" },
 };
 
 const EYE_CX = 20.2002;

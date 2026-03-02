@@ -29,12 +29,12 @@ export default function MascotPage() {
       {/* Color bar - fixed at bottom, overlay style */}
       <div className="fixed bottom-10 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[rgba(109,109,109,0.6)] px-4 py-2.5 backdrop-blur-[20px]">
           <div className="flex items-center gap-1.5">
-            {([1, 2, 3, 4, 5, 6, 7] as WormVariant[]).map((v) => (
+            {([1, 2, 3, 4, 5, 6, 7, 8] as WormVariant[]).map((v) => (
               <button
                 key={v}
                 onClick={() => setVariant(v)}
-                className={`h-5 w-5 shrink-0 rounded-full transition-all hover:scale-110 ${
-                  variant === v ? "ring-2 ring-white/80 ring-offset-2 ring-offset-[rgba(109,109,109,0.6)]" : ""
+                className={`h-5 w-5 shrink-0 rounded-full transition-all hover:scale-105 ${
+                  variant === v ? "ring-1 ring-white/80 ring-offset-1 ring-offset-[rgba(109,109,109,0.6)]" : ""
                 }`}
                 style={{ backgroundColor: MASCOT_VARIANT_SWATCHES[v] }}
                 aria-label={`Variant ${v}`}

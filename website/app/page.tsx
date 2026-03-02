@@ -76,7 +76,7 @@ export default function Layout({ children }) {
             {/* Color picker - variant 2 is main
             <div className="mt-2 flex items-center gap-1.5">
               <span className="text-[10px] text-[var(--muted-fg)]">mascot</span>
-              {([1, 2, 3, 4, 5, 6, 7] as WormVariant[]).map((v) => (
+              {([1, 2, 3, 4, 5, 6, 7, 8] as WormVariant[]).map((v) => (
                 <button
                   key={v}
                   onClick={() => setMascotVariant(v)}
