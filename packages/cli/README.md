@@ -6,6 +6,12 @@
 npm i -g wormkey
 ```
 
+Or run without installing:
+
+```bash
+npx wormkey http 3000
+```
+
 ## Run
 
 ```bash

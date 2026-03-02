@@ -103,6 +103,11 @@ export default function RootLayout({ children }) {
 
 ## Commands
 
+```bash
+npm i -g wormkey       # Install globally
+npx wormkey http 3000  # Or run without installing
+```
+
 ```
 wormkey login          # Authenticate (v0: not implemented)
 wormkey http <port>    # Expose port via wormhole

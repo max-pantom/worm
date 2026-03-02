@@ -178,17 +178,56 @@ func resolveSlug(r *http.Request) string {
 	return ""
 }
 
+// Worm mascot SVG (idle state, variant 1)
+const mascotSVG = `<svg width="80" height="94" viewBox="0 0 40 47" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto 1rem">
+<path fill-rule="evenodd" clip-rule="evenodd" d="M16.1768 6.76665C16.8585 4.19156 19.0178 2.48157 21.1738 2.89262C22.9259 3.22675 24.1639 4.86419 24.3984 6.88579C33.3281 8.88981 40 16.8659 40 26.4004C39.9999 37.446 31.0456 46.4004 20 46.4004C8.95439 46.4004 0.000145094 37.446 0 26.4004C0 16.6623 6.96001 8.55093 16.1768 6.76665Z" fill="#D9D9D9"/>
+<ellipse cx="20.2" cy="23.8" rx="5" ry="6.19" fill="#fff"/>
+<ellipse cx="20.2" cy="23.8" rx="2.14" ry="3.1" fill="#161616"/>
+<g transform="translate(12.8,18.36) rotate(-11)">
+<rect width="12.48" height="5.6" fill="#D9D9D9"/>
+</g>
+<path d="M15.71 36.97H18.11L17.71 42.97H16.11L15.71 36.97Z" fill="#A3A3A3"/>
+<path d="M22.8 36.8H25.2L24.8 42.8H23.2L22.8 36.8Z" fill="#A3A3A3"/>
+<path d="M19.31 36.17H21.71L21.31 42.17H19.71L19.31 36.17Z" fill="#A3A3A3"/>
+<path d="M5.1 13.9L6.52 15.32M5.1 15.32L6.52 13.9" stroke="#D9D9D9" stroke-width="0.6" stroke-linecap="round"/>
+<path d="M33.1 13.9L34.52 15.32M33.1 15.32L34.52 13.9" stroke="#D9D9D9" stroke-width="0.6" stroke-linecap="round"/>
+</svg>`
+
 func writeWormholeNotActive(w http.ResponseWriter) {
+	writeErrorPage(w, http.StatusBadGateway, "Wormhole not active", "No tunnel is connected. Run <code>wormkey http &lt;port&gt;</code> to open a wormhole.")
+}
+
+func writeInvalidSlug(w http.ResponseWriter) {
+	writeErrorPage(w, http.StatusNotFound, "Invalid wormhole link", "This link is invalid or the wormhole has expired.")
+}
+
+func writeErrorPage(w http.ResponseWriter, status int, title, message string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusBadGateway)
-	_, _ = w.Write([]byte(`<!DOCTYPE html>
+	w.WriteHeader(status)
+	html := `<!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>Wormhole not active</title></head>
-<body style="font-family:ui-sans-serif,system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:2rem;text-align:center">
-<h1 style="font-size:1.25rem;font-weight:600">502 Wormhole not active</h1>
-<p style="color:#64748b;margin-top:0.5rem">No tunnel is connected for this host. Run <code>wormkey http &lt;port&gt;</code> to open a wormhole.</p>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>` + title + `</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:ui-sans-serif,system-ui,sans-serif;background:#0f0f0f;color:#f4f4f4;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
+.wrap{text-align:center;max-width:28rem}
+h1{font-size:1.25rem;font-weight:600;margin:0 0 0.5rem}
+p{color:#a3a3a3;margin:0;line-height:1.6}
+code{background:#262626;padding:0.2em 0.4em;border-radius:4px;font-size:0.9em}
+a{color:#60a5fa;text-decoration:none}
+a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+` + mascotSVG + `
+<h1>` + title + `</h1>
+<p>` + message + `</p>
+<p style="margin-top:1.5rem"><a href="https://wormkey.run">wormkey.run</a></p>
+</div>
 </body>
-</html>`))
+</html>`
+	_, _ = w.Write([]byte(html))
 }
 
 func setCookie(w http.ResponseWriter, name, value string, httpOnly bool) {
@@ -750,7 +789,7 @@ func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 		slugFromPath := strings.HasPrefix(r.URL.Path, "/s/")
 		slug := resolveSlug(r)
 		if slug == "" {
-			writeWormholeNotActive(w)
+			writeInvalidSlug(w)
 			return
 		}
 		val, ok := tunnels.Load(slug)

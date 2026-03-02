@@ -40,10 +40,11 @@ export default function Home() {
     pnpm: "pnpm add -g wormkey",
     yarn: "yarn global add wormkey",
     bun: "bun add -g wormkey",
+    npx: "npx wormkey http 3000",
   } as const;
   const [pkgManager, setPkgManager] = useState<keyof typeof installCmds>("npm");
   const installCmd = installCmds[pkgManager];
-  const quickCmd = "wormkey http 3000";
+  const quickCmd = pkgManager === "npx" ? "npx wormkey http 3000" : "wormkey http 3000";
   const envBlock = `# optional overrides
 WORMKEY_CONTROL_PLANE_URL=https://wormkey-control-plane.onrender.com
 WORMKEY_EDGE_URL=wss://t.wormkey.run/tunnel`;
@@ -113,7 +114,7 @@ export default function Layout({ children }) {
         <div className="mt-8 space-y-2">
           <div className="flex flex-col gap-2">
             <div className="flex gap-1">
-              {(["npm", "pnpm", "yarn", "bun"] as const).map((pkg) => (
+              {(["npm", "pnpm", "yarn", "bun", "npx"] as const).map((pkg) => (
                 <button
                   key={pkg}
                   onClick={() => setPkgManager(pkg)}
@@ -135,13 +136,15 @@ export default function Layout({ children }) {
               dark={theme !== "light"}
             />
           </div>
-          <CodeBlock
-            value={quickCmd}
-            language="bash"
-            copied={copied === "run"}
-            onCopy={() => copy(quickCmd, "run")}
-            dark={theme !== "light"}
-          />
+          {pkgManager !== "npx" && (
+            <CodeBlock
+              value={quickCmd}
+              language="bash"
+              copied={copied === "run"}
+              onCopy={() => copy(quickCmd, "run")}
+              dark={theme !== "light"}
+            />
+          )}
         </div>
 
         <p className="mt-4 text-xs text-[var(--muted)]">
@@ -316,10 +319,11 @@ function ThemeToggle({ isDark, onClick }: { isDark: boolean; onClick: () => void
 /** Demo of the owner control bar. Keep in sync with packages/gateway/overlay.js. Figma: node-id=1533-250 */
 function DemoControlBar({ onClose }: { onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<"copy" | "logs">("copy");
+  const [panelOpen, setPanelOpen] = useState(false);
   const [viewers] = useState(3);
   const [position, setPosition] = useState<{ x?: number; bottom?: number; center?: boolean }>({ bottom: 10, center: true });
   const [dragging, setDragging] = useState(false);
-  const dragRef = useRef({ dx: 0, dy: 0 });
+  const dragRef = useRef({ dx: 0, dy: 0, startX: 0, startY: 0 });
   const overlayRef = useRef<HTMLDivElement>(null);
   const mainUrl = "https://wormkey.run/s/swift-rose-67";
   const ownerUrl = "https://wormkey.run/.wormkey/owner?slug=swift-rose-67&to.....";
@@ -329,7 +333,12 @@ function DemoControlBar({ onClose }: { onClose: () => void }) {
     const el = (e.target as HTMLElement).closest("[data-wormkey-overlay]") as HTMLElement;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    dragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    dragRef.current = {
+      dx: e.clientX - rect.left,
+      dy: e.clientY - rect.top,
+      startX: e.clientX,
+      startY: e.clientY,
+    };
     setPosition({ x: rect.left, bottom: window.innerHeight - rect.bottom, center: false });
   };
 
@@ -346,7 +355,11 @@ function DemoControlBar({ onClose }: { onClose: () => void }) {
         bottom: Math.max(10, Math.min(newBottom, window.innerHeight - h)),
       }));
     };
-    const onUp = () => setDragging(false);
+    const onUp = (e: MouseEvent) => {
+      const moved = Math.abs(e.clientX - dragRef.current.startX) > 4 || Math.abs(e.clientY - dragRef.current.startY) > 4;
+      if (!moved) setPanelOpen(false);
+      setDragging(false);
+    };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => {
@@ -368,7 +381,8 @@ function DemoControlBar({ onClose }: { onClose: () => void }) {
       className="fixed z-[2147483647] flex w-fit min-w-[380px] max-w-[calc(100vw-20px)] flex-col items-stretch justify-end gap-1"
       style={barStyle}
     >
-      {/* Tab content panel - always visible; both tabs in DOM, show active */}
+      {/* Tab content panel - hidden until tab clicked */}
+      {panelOpen && (
       <div className="flex w-full min-w-0 min-h-[44px] flex-col gap-1 rounded-[10px] bg-[rgba(109,109,109,0.2)] p-1 backdrop-blur-[5px]">
         <div className={activeTab === "copy" ? "flex flex-col gap-1" : "hidden"}>
           <div className="flex min-w-0 items-center overflow-hidden rounded-md bg-white/[0.02] p-2.5">
@@ -397,30 +411,31 @@ function DemoControlBar({ onClose }: { onClose: () => void }) {
           Logs will appear here.
         </div>
       </div>
+      )}
       {/* Tab bar */}
       <div className="flex h-10 items-stretch gap-1 rounded-[10px] bg-[rgba(109,109,109,0.6)] p-1 text-[10px] font-medium text-white backdrop-blur-[20px]">
         <div
           role="button"
           tabIndex={0}
           onMouseDown={handleDragStart}
-          className={`flex select-none items-center px-2.5 opacity-50 ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
-          title="Drag to move"
+          className={`flex select-none items-center rounded-md px-2.5 opacity-50 transition-colors ${dragging ? "cursor-grabbing" : "cursor-grab"} hover:bg-white/[0.03]`}
+          title="Drag to move; click to close panel"
         >
           Wormkey
         </div>
         <button
-          onClick={() => setActiveTab("copy")}
-          className="flex items-center justify-center rounded-md px-2.5 opacity-50 hover:opacity-70"
+          onClick={() => { setActiveTab("copy"); setPanelOpen(true); }}
+          className={`flex items-center justify-center rounded-md px-2.5 transition-colors ${panelOpen && activeTab === "copy" ? "bg-white/15" : "opacity-50"} hover:bg-white/[0.03] hover:opacity-100`}
         >
           Copy Url
         </button>
         <button
-          onClick={() => setActiveTab("logs")}
-          className="flex items-center justify-center rounded-md px-2.5 opacity-50 hover:opacity-70"
+          onClick={() => { setActiveTab("logs"); setPanelOpen(true); }}
+          className={`flex items-center justify-center rounded-md px-2.5 transition-colors ${panelOpen && activeTab === "logs" ? "bg-white/15" : "opacity-50"} hover:bg-white/[0.03] hover:opacity-100`}
         >
           Logs
         </button>
-        <button onClick={onClose} className="flex items-center px-2.5 opacity-50 hover:opacity-70">
+        <button onClick={onClose} className="flex items-center rounded-md px-2.5 opacity-50 transition-colors hover:bg-white/[0.03] hover:opacity-70">
           Close Tunnel
         </button>
         <div className="w-px shrink-0 self-stretch bg-white/20" />

@@ -49,9 +49,11 @@
     if (!me || !me.owner) return;
     var shareUrl = getShareUrl();
     var activeTab = 'copy';
+    var panelOpen = false;
+    var wormkeyDownX = 0, wormkeyDownY = 0;
 
     var styleEl = document.createElement('style');
-    styleEl.textContent = '@keyframes tabbar-shield-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}#wormkey-overlay .tabbar-connected:hover .tabbar-shield{animation:tabbar-shield-spin .6s ease-in-out}#wormkey-overlay .tabbar-views .tabbar-eye{transform-origin:center;transition:transform .2s ease-out}#wormkey-overlay .tabbar-views:hover .tabbar-eye{transform:scaleY(.15)}@media(prefers-reduced-motion:reduce){#wormkey-overlay .tabbar-shield,#wormkey-overlay .tabbar-eye{animation:none!important;transition:none!important}}';
+    styleEl.textContent = '@keyframes tabbar-shield-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}#wormkey-overlay .tabbar-connected:hover .tabbar-shield{animation:tabbar-shield-spin .6s ease-in-out}#wormkey-overlay .tabbar-views .tabbar-eye{transform-origin:center;transition:transform .2s ease-out}#wormkey-overlay .tabbar-views:hover .tabbar-eye{transform:scaleY(.15)}#wormkey-overlay .tabbar-btn:hover{background:rgba(255,255,255,0.03)}@media(prefers-reduced-motion:reduce){#wormkey-overlay .tabbar-shield,#wormkey-overlay .tabbar-eye{animation:none!important;transition:none!important}}';
     document.head.appendChild(styleEl);
 
     var root = document.createElement('div');
@@ -60,6 +62,8 @@
     var dragging = false, dx = 0, dy = 0;
     function startDrag(ev){
       dragging = true;
+      wormkeyDownX = ev.clientX;
+      wormkeyDownY = ev.clientY;
       root.style.transform = 'none';
       var rect = root.getBoundingClientRect();
       root.style.left = rect.left + 'px';
@@ -77,11 +81,18 @@
       root.style.bottom = Math.max(10, Math.min(newBottom, window.innerHeight - h)) + 'px';
       root.style.top = 'auto';
     });
-    document.addEventListener('mouseup', function(){ dragging = false; });
+    document.addEventListener('mouseup', function(ev){
+      if (dragging && (Math.abs(ev.clientX - wormkeyDownX) > 4 || Math.abs(ev.clientY - wormkeyDownY) > 4) === false) {
+        panelOpen = false;
+        panel.style.display = 'none';
+      }
+      dragging = false;
+      wormkeyHandle.style.cursor = 'grab';
+    });
 
     var panel = document.createElement('div');
     panel.id = 'wormkey-panel';
-    panel.style.cssText = 'display:flex;flex-direction:column;gap:4px;padding:4px;border-radius:10px;background:rgba(109,109,109,0.2);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);width:100%;min-width:0;min-height:44px;box-sizing:border-box';
+    panel.style.cssText = 'display:none;flex-direction:column;gap:4px;padding:4px;border-radius:10px;background:rgba(109,109,109,0.2);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);width:100%;min-width:0;min-height:44px;box-sizing:border-box';
 
     function row(label, value, onCopy){
       var r = document.createElement('div');
@@ -116,30 +127,33 @@
 
     var wormkeyHandle = document.createElement('div');
     wormkeyHandle.textContent = 'Wormkey';
-    wormkeyHandle.style.cssText = 'padding:0 10px;opacity:0.5;white-space:nowrap;display:flex;align-items:center;cursor:grab;user-select:none';
-    wormkeyHandle.title = 'Drag to move';
+    wormkeyHandle.className = 'tabbar-btn';
+    wormkeyHandle.style.cssText = 'padding:0 10px;opacity:0.5;white-space:nowrap;display:flex;align-items:center;cursor:grab;user-select:none;border-radius:6px;background:transparent;border:0;transition:background .15s';
+    wormkeyHandle.title = 'Drag to move; click to close panel';
     wormkeyHandle.onmousedown = function(ev){
       startDrag(ev);
       wormkeyHandle.style.cursor = 'grabbing';
     };
-    document.addEventListener('mouseup', function(){ wormkeyHandle.style.cursor = 'grab'; });
     bar.appendChild(wormkeyHandle);
 
     var copyTabBtn = document.createElement('button');
+    copyTabBtn.className = 'tabbar-btn';
     copyTabBtn.textContent = 'Copy Url';
-    copyTabBtn.style.cssText = 'border:0;background:transparent;border-radius:6px;padding:0 10px;cursor:pointer;color:#fff;font:10px "Geist",sans-serif;font-weight:500;opacity:0.5;white-space:nowrap;display:flex;align-items:center;justify-content:center';
-    copyTabBtn.onclick = function(){ activeTab = 'copy'; setTab(); };
+    copyTabBtn.style.cssText = 'border:0;background:transparent;border-radius:6px;padding:0 10px;cursor:pointer;color:#fff;font:10px "Geist",sans-serif;font-weight:500;opacity:0.5;white-space:nowrap;display:flex;align-items:center;justify-content:center;transition:background .15s';
+    copyTabBtn.onclick = function(){ activeTab = 'copy'; panelOpen = true; panel.style.display = 'flex'; setTab(); };
     bar.appendChild(copyTabBtn);
 
     var logsTabBtn = document.createElement('button');
+    logsTabBtn.className = 'tabbar-btn';
     logsTabBtn.textContent = 'Logs';
-    logsTabBtn.style.cssText = 'border:0;background:transparent;padding:0 10px;cursor:pointer;color:#fff;font:10px "Geist",sans-serif;font-weight:500;opacity:0.5;white-space:nowrap;display:flex;align-items:center;justify-content:center';
-    logsTabBtn.onclick = function(){ activeTab = 'logs'; setTab(); };
+    logsTabBtn.style.cssText = 'border:0;background:transparent;padding:0 10px;cursor:pointer;color:#fff;font:10px "Geist",sans-serif;font-weight:500;opacity:0.5;white-space:nowrap;display:flex;align-items:center;justify-content:center;transition:background .15s';
+    logsTabBtn.onclick = function(){ activeTab = 'logs'; panelOpen = true; panel.style.display = 'flex'; setTab(); };
     bar.appendChild(logsTabBtn);
 
     var closeBtn = document.createElement('button');
+    closeBtn.className = 'tabbar-btn';
     closeBtn.textContent = 'Close Tunnel';
-    closeBtn.style.cssText = 'border:0;background:transparent;padding:0 10px;cursor:pointer;color:#fff;font:10px "Geist",sans-serif;font-weight:500;opacity:0.5;white-space:nowrap;display:flex;align-items:center;justify-content:center';
+    closeBtn.style.cssText = 'border:0;background:transparent;padding:0 10px;cursor:pointer;color:#fff;font:10px "Geist",sans-serif;font-weight:500;opacity:0.5;white-space:nowrap;display:flex;align-items:center;justify-content:center;transition:background .15s';
     bar.appendChild(closeBtn);
 
     var divider = document.createElement('div');
@@ -169,6 +183,10 @@
     function setTab(){
       copyContent.style.display = activeTab === 'copy' ? 'flex' : 'none';
       logsContent.style.display = activeTab === 'logs' ? 'block' : 'none';
+      copyTabBtn.style.background = activeTab === 'copy' ? 'rgba(255,255,255,0.15)' : 'transparent';
+      copyTabBtn.style.opacity = activeTab === 'copy' ? '1' : '0.5';
+      logsTabBtn.style.background = activeTab === 'logs' ? 'rgba(255,255,255,0.15)' : 'transparent';
+      logsTabBtn.style.opacity = activeTab === 'logs' ? '1' : '0.5';
     }
 
     function refresh(){
