@@ -8,11 +8,11 @@ import cors from "@fastify/cors";
 
 const ADJECTIVES = [
   "quiet", "bold", "swift", "calm", "bright", "soft", "warm", "cool",
-  "deep", "flat", "wild", "mild", "dark", "pale", "pure", "rare",
+  "deep", "flat", "wild", "mild", "dark", "pale", "pure", "rare", "max" ,
 ];
 const NOUNS = [
   "lime", "mint", "sage", "rose", "sky", "sea", "sand", "snow",
-  "mist", "dawn", "dusk", "flame", "storm", "wave", "wind", "frost",
+  "mist", "dawn", "dusk", "flame", "storm", "wave", "wind", "frost", "tooth"
 ];
 
 function randomSlug(): string {

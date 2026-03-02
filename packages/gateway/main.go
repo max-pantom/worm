@@ -90,6 +90,7 @@ type viewerState struct {
 
 type persistedSession struct {
 	OwnerToken      string        `json:"ownerToken"`
+	OwnerUrl        string        `json:"ownerUrl"`
 	Policy          tunnelPolicy  `json:"policy"`
 	KickedViewerIds []string      `json:"kickedViewerIds"`
 	ActiveViewers   []viewerState `json:"activeViewers"`
@@ -403,6 +404,39 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"owner":` + strconv.FormatBool(owner) + `}`))
+	})
+
+	mux.HandleFunc("/.wormkey/urls", func(w http.ResponseWriter, r *http.Request) {
+		slug := resolveSlug(r)
+		if slug == "" {
+			http.Error(w, "Missing slug", 400)
+			return
+		}
+		val, ok := tunnels.Load(slug)
+		if !ok {
+			http.Error(w, "Tunnel not connected", 503)
+			return
+		}
+		tc := val.(*tunnelConn)
+		if !isOwner(r, tc) {
+			http.Error(w, "Forbidden", 403)
+			return
+		}
+		sess, status, err := fetchSession(controlPlaneURL, slug)
+		if err != nil || status != http.StatusOK {
+			publicUrl := strings.TrimSuffix(getEnv("WORMKEY_PUBLIC_BASE_URL", getEnv("WORMKEY_PUBLIC_BASE", "http://localhost:3002")), "/") + "/s/" + slug
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]string{"publicUrl": publicUrl, "ownerUrl": ""})
+			return
+		}
+		base := strings.TrimSuffix(getEnv("WORMKEY_PUBLIC_BASE_URL", getEnv("WORMKEY_PUBLIC_BASE", "http://localhost:3002")), "/")
+		publicUrl := base + "/s/" + slug
+		ownerUrl := sess.OwnerUrl
+		if ownerUrl == "" && sess.OwnerToken != "" {
+			ownerUrl = base + "/.wormkey/owner?slug=" + slug + "&token=" + sess.OwnerToken
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"publicUrl": publicUrl, "ownerUrl": ownerUrl})
 	})
 
 	mux.HandleFunc("/.wormkey/state", func(w http.ResponseWriter, r *http.Request) {

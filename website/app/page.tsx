@@ -62,9 +62,14 @@ export default function Layout({ children }) {
     <div className="min-h-dvh bg-[var(--bg)] text-[var(--fg)]">
       <main className="mx-auto max-w-xl px-6 pt-10 pb-16">
         <div className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-4">
-          <h1 className="text-xl font-semibold">
-            <span className="text-[var(--fg)]">Wormkey</span>
-            <span className="font-normal text-[var(--muted-fg)]">.run</span>
+          <h1 className="flex items-start gap-1.5 text-xl font-semibold">
+            <span>
+              <span className="text-[var(--fg)]">Wormkey</span>
+              <span className="font-normal text-[var(--muted-fg)]">.run</span>
+            </span>
+            <span className="rounded bg-[var(--code-bg)] px-1.5 py-0.5 text-[8px] font-medium uppercase tracking-wide text-[var(--muted-fg)] opacity-70 leading-tight">
+              Beta
+            </span>
           </h1>
           <div className="flex flex-col items-center justify-center">
             <WormMascot variant={2} className="opacity-90" shakeTrigger={shakeTrigger} />
@@ -308,45 +313,40 @@ function ThemeToggle({ isDark, onClick }: { isDark: boolean; onClick: () => void
   );
 }
 
-/** Demo of the owner control bar. Keep in sync with packages/gateway/overlay.js */
+/** Demo of the owner control bar. Keep in sync with packages/gateway/overlay.js. Figma: node-id=1533-250 */
 function DemoControlBar({ onClose }: { onClose: () => void }) {
-  const [collapsed, setCollapsed] = useState(false);
-  const [isPublic, setIsPublic] = useState(true);
-  const [viewers] = useState(2);
-  const [maxViewers, setMaxViewers] = useState(20);
-  const [blockPath, setBlockPath] = useState("");
-  const [selectedViewer, setSelectedViewer] = useState("");
-  const [position, setPosition] = useState<{ x: number; y?: number; bottom?: number }>({
-    x: 12,
-    bottom: 12,
-  });
+  const [activeTab, setActiveTab] = useState<"copy" | "logs">("copy");
+  const [viewers] = useState(3);
+  const [position, setPosition] = useState<{ x?: number; bottom?: number; center?: boolean }>({ bottom: 10, center: true });
   const [dragging, setDragging] = useState(false);
-  const dragOffsetRef = useRef({ dx: 0, dy: 0 });
-  const barRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef({ dx: 0, dy: 0 });
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const mainUrl = "https://wormkey.run/s/swift-rose-67";
+  const ownerUrl = "https://wormkey.run/.wormkey/owner?slug=swift-rose-67&to.....";
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const el = barRef.current;
+  const handleDragStart = (e: React.MouseEvent) => {
+    setDragging(true);
+    const el = (e.target as HTMLElement).closest("[data-wormkey-overlay]") as HTMLElement;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    dragOffsetRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
-    setPosition({ x: rect.left, y: rect.top });
-    setDragging(true);
+    dragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    setPosition({ x: rect.left, bottom: window.innerHeight - rect.bottom, center: false });
   };
 
   useEffect(() => {
     if (!dragging) return;
     const onMove = (e: MouseEvent) => {
-      setPosition({
-        x: Math.max(4, Math.min(e.clientX - dragOffsetRef.current.dx, window.innerWidth - 200)),
-        y: Math.max(4, Math.min(e.clientY - dragOffsetRef.current.dy, window.innerHeight - 80)),
-      });
+      const el = overlayRef.current;
+      const h = el?.offsetHeight ?? 150;
+      const newLeft = Math.max(0, Math.min(e.clientX - dragRef.current.dx, window.innerWidth - 300));
+      const newBottom = window.innerHeight - (e.clientY - dragRef.current.dy + h);
+      setPosition((p) => ({
+        ...p,
+        x: newLeft,
+        bottom: Math.max(10, Math.min(newBottom, window.innerHeight - h)),
+      }));
     };
-    const onUp = () => {
-      setDragging(false);
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
+    const onUp = () => setDragging(false);
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
     return () => {
@@ -355,94 +355,88 @@ function DemoControlBar({ onClose }: { onClose: () => void }) {
     };
   }, [dragging]);
 
-  useEffect(() => {
-    if (dragging) document.body.style.cursor = "grabbing";
-    else document.body.style.cursor = "";
-    return () => {
-      document.body.style.cursor = "";
-    };
-  }, [dragging]);
-
   const barStyle: React.CSSProperties =
-    position.y !== undefined
-      ? { left: position.x, top: position.y }
-      : { left: position.x, bottom: position.bottom ?? 12 };
+    position.center
+      ? { left: "50%", transform: "translateX(-50%)", bottom: position.bottom ?? 10 }
+      : { left: position.x ?? 10, bottom: position.bottom ?? 10 };
 
   return (
     <div
-      ref={barRef}
+      ref={overlayRef}
       id="wormkey-demo-bar"
-      className="fixed z-[2147483647] flex max-w-[calc(100vw-24px)] flex-wrap items-center gap-2 rounded-2xl bg-[#101820] px-2.5 py-2 text-[12px] font-mono text-[#f4f4ef] shadow-[0_8px_30px_rgba(0,0,0,.25)]"
+      data-wormkey-overlay
+      className="fixed z-[2147483647] flex w-fit min-w-[380px] max-w-[calc(100vw-20px)] flex-col items-stretch justify-end gap-1"
       style={barStyle}
     >
-      <button
-        onMouseDown={handleMouseDown}
-        className="cursor-grab select-none px-1 py-0.5 hover:opacity-80"
-        title="Drag"
-      >
-        ::
-      </button>
-      <strong>Wormkey</strong>
-      <span className="opacity-85">
-        {isPublic ? "Public" : "Locked"} | viewers {viewers}
-      </span>
-      <button
-        onClick={() => setCollapsed((c) => !c)}
-        className="px-1 py-0.5 hover:opacity-80"
-        title={collapsed ? "Expand" : "Collapse"}
-      >
-        {collapsed ? "+" : "-"}
-      </button>
-      {!collapsed && (
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setIsPublic((p) => !p)}
-            className="rounded-full bg-[#f4f4ef] px-2 py-1.5 text-[#101820] hover:opacity-90"
-          >
-            {isPublic ? "Lock" : "Unlock"}
-          </button>
-          <button className="rounded-full bg-[#f4f4ef] px-2 py-1.5 text-[#101820] hover:opacity-90">
-            Rotate
-          </button>
-          <button
-            onClick={onClose}
-            className="rounded-full bg-[#f4f4ef] px-2 py-1.5 text-[#101820] hover:opacity-90"
-          >
-            Close
-          </button>
-          <input
-            type="number"
-            min={1}
-            value={maxViewers}
-            onChange={(e) => setMaxViewers(Number(e.target.value) || 20)}
-            className="w-16 rounded-full border-0 bg-[#f4f4ef] px-2 py-1.5 text-[#101820]"
-          />
-          <button className="rounded-full bg-[#f4f4ef] px-2 py-1.5 text-[#101820] hover:opacity-90">
-            Set max
-          </button>
-          <input
-            placeholder="/admin"
-            value={blockPath}
-            onChange={(e) => setBlockPath(e.target.value)}
-            className="w-[110px] rounded-full border-0 bg-[#f4f4ef] px-2 py-1.5 text-[#101820] placeholder:text-[#71717a]"
-          />
-          <button className="rounded-full bg-[#f4f4ef] px-2 py-1.5 text-[#101820] hover:opacity-90">
-            Block
-          </button>
-          <select
-            value={selectedViewer}
-            onChange={(e) => setSelectedViewer(e.target.value)}
-            className="max-w-[140px] rounded-full border-0 bg-[#f4f4ef] px-2 py-1.5 text-[#101820]"
-          >
-            <option value="">Select viewer</option>
-            <option value="abc-123">abc-123 (3)</option>
-            <option value="xyz-456">xyz-456 (1)</option>
-          </select>
-          <button className="rounded-full bg-[#f4f4ef] px-2 py-1.5 text-[#101820] hover:opacity-90">
-            Kick
-          </button>
+      {/* Tab content panel - always visible; both tabs in DOM, show active */}
+      <div className="flex w-full min-w-0 min-h-[44px] flex-col gap-1 rounded-[10px] bg-[rgba(109,109,109,0.2)] p-1 backdrop-blur-[5px]">
+        <div className={activeTab === "copy" ? "flex flex-col gap-1" : "hidden"}>
+          <div className="flex min-w-0 items-center overflow-hidden rounded-md bg-white/[0.02] p-2.5">
+            <p className="min-w-0 flex-1 truncate text-[10px] font-medium text-white/80">
+              Main_Url: <span className="text-white/50">{mainUrl}</span>
+            </p>
+            <button
+              onClick={() => {
+                navigator.clipboard?.writeText(mainUrl);
+              }}
+              className="ml-2 shrink-0 rounded-md bg-white/15 px-2.5 py-1 text-[10px] hover:bg-white/20"
+            >
+              Copy
+            </button>
+          </div>
+          <div className="flex min-w-0 items-center overflow-hidden rounded-md bg-white/[0.02] p-2.5">
+            <p className="min-w-0 flex-1 truncate text-[10px] font-medium text-white/80">
+              Owner: <span className="text-white/50">{ownerUrl}</span>
+            </p>
+            <button className="ml-2 shrink-0 rounded-md bg-white/15 px-2.5 py-1 text-[10px] hover:bg-white/20">
+              Copy
+            </button>
+          </div>
         </div>
-      )}
+        <div className={activeTab === "logs" ? "flex items-center p-2.5 text-[10px] text-white/50" : "hidden"}>
+          Logs will appear here.
+        </div>
+      </div>
+      {/* Tab bar */}
+      <div className="flex h-10 items-stretch gap-1 rounded-[10px] bg-[rgba(109,109,109,0.6)] p-1 text-[10px] font-medium text-white backdrop-blur-[20px]">
+        <div
+          role="button"
+          tabIndex={0}
+          onMouseDown={handleDragStart}
+          className={`flex select-none items-center px-2.5 opacity-50 ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
+          title="Drag to move"
+        >
+          Wormkey
+        </div>
+        <button
+          onClick={() => setActiveTab("copy")}
+          className="flex items-center justify-center rounded-md px-2.5 opacity-50 hover:opacity-70"
+        >
+          Copy Url
+        </button>
+        <button
+          onClick={() => setActiveTab("logs")}
+          className="flex items-center justify-center rounded-md px-2.5 opacity-50 hover:opacity-70"
+        >
+          Logs
+        </button>
+        <button onClick={onClose} className="flex items-center px-2.5 opacity-50 hover:opacity-70">
+          Close Tunnel
+        </button>
+        <div className="w-px shrink-0 self-stretch bg-white/20" />
+        <div className="tabbar-connected flex cursor-default items-center gap-1.5 px-2.5">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="shrink-0 tabbar-shield">
+            <path d="M8.04151 2.52766L5.69751 1.09866C5.26701 0.837156 4.73251 0.836656 4.30201 1.09866L1.95801 2.52716C1.52101 2.79366 1.24951 3.29266 1.24951 3.82916V6.16866C1.24951 6.70566 1.52101 7.20466 1.95801 7.47066L4.30201 8.89966C4.51701 9.03066 4.75851 9.09616 4.99951 9.09616C5.24051 9.09616 5.48201 9.03066 5.69701 8.89966L8.04101 7.47116C8.47801 7.20466 8.74951 6.70566 8.74951 6.16916V3.82966C8.74951 3.29266 8.47851 2.79366 8.04151 2.52766ZM7.14201 3.80966L4.76701 6.80966C4.67551 6.92516 4.53801 6.99466 4.39051 6.99916C4.38551 6.99916 4.38001 6.99916 4.37501 6.99916C4.23351 6.99916 4.09801 6.93916 4.00351 6.83366L2.87851 5.58366C2.69401 5.37816 2.71051 5.06216 2.91551 4.87766C3.12101 4.69266 3.43651 4.70966 3.62151 4.91466L4.35051 5.72466L6.35801 3.18916C6.52951 2.97316 6.84351 2.93616 7.06051 3.10716C7.27701 3.27866 7.31351 3.59316 7.14201 3.80966Z" fill="#5BFF6D" />
+          </svg>
+          <span className="text-[#5BFF6D]">Connected</span>
+        </div>
+        <div className="tabbar-views flex cursor-default items-center gap-1.5 px-2.5">
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className="tabbar-eye shrink-0">
+            <path d="M8.75554 4.098C8.31704 3.317 7.07304 1.5 5.00004 1.5C2.92704 1.5 1.68304 3.317 1.25204 4.085C0.920543 4.6365 0.918043 5.3475 1.24404 5.9015C1.57554 6.527 2.79754 8.4995 5.00004 8.4995C7.07304 8.4995 8.31704 6.6825 8.74804 5.9145C9.08204 5.359 9.08204 4.6405 8.75554 4.0975V4.098ZM5.00004 6.5C4.17154 6.5 3.50004 5.8285 3.50004 5C3.50004 4.1715 4.17154 3.5 5.00004 3.5C5.82854 3.5 6.50004 4.1715 6.50004 5C6.50004 5.8285 5.82854 6.5 5.00004 6.5Z" fill="#A0A0A0" />
+          </svg>
+          <span className="text-[#A0A0A0]">{viewers}</span>
+        </div>
+      </div>
     </div>
   );
 }

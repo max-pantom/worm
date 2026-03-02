@@ -85,6 +85,28 @@ body {
   }
 }
 
+@keyframes tabbar-shield-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+[data-wormkey-overlay] .tabbar-connected:hover .tabbar-shield {
+  animation: tabbar-shield-spin 0.6s ease-in-out;
+}
+
+[data-wormkey-overlay] .tabbar-views .tabbar-eye {
+  transform-origin: center;
+  transition: transform 0.2s ease-out;
+}
+
+[data-wormkey-overlay] .tabbar-views:hover .tabbar-eye {
+  transform: scaleY(0.15);
+}
+
 [data-worm-mascot] .worm-antenna-hover {
   animation: worm-antenna-wiggle 0.4s ease-in-out infinite;
   transform-origin: 20px 14px;
@@ -95,6 +117,11 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  [data-wormkey-overlay] .tabbar-shield,
+  [data-wormkey-overlay] .tabbar-eye {
+    animation: none !important;
+    transition: none !important;
+  }
   [data-worm-mascot] .worm-transition {
     transition: none !important;
   }

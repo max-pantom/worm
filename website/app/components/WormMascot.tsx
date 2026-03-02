@@ -12,7 +12,7 @@ export const MASCOT_VARIANT_SWATCHES: Record<WormVariant, string> = {
   3: "#2067FF",
   4: "#6BFF20",
   5: "#FF2A2D",
-  6: "#FF2A2D",
+  6: "#A855F7",
   7: "#000000",
 };
 
@@ -27,12 +27,12 @@ const COLOR_VARIANTS: Record<
   5: { body: "#FF2A2D", eyes: "#000000", pupil: "#FFEA2A", teeth: "#ffffff", antenna: "#D90407" },
   7: { body: "#000000", eyes: "#9B9B9B", pupil: "#FFFFFF", teeth: "#D9D9D9", antenna: "#010101" },
   6: {
-    body: "",
-    eyes: "",
-    pupil: "",
-    teeth: "",
-    antenna: ""
-  }
+    body: "#A855F7",
+    eyes: "#E9D5FF",
+    pupil: "#581C87",
+    teeth: "#F0ABFC",
+    antenna: "#C084FC",
+  },
 };
 
 const EYE_CX = 20.2002;
@@ -45,20 +45,25 @@ const STATE_VALUES = {
     rectY: 18.3633,
     rectRotate: -10.9044,
     antennae: "idle" as const,
+    teethY: 0,
   },
   searching: {
     rectX: 12.7998,
     rectY: 13.2441,
     rectRotate: -2.03585,
     antennae: "tilted" as const,
+    teethY: 1.6,
   },
   hover: {
     rectX: 14.4814,
     rectY: 15.6895,
     rectRotate: 12.9642,
     antennae: "tilted" as const,
+    teethY: 0.8,
   },
 };
+
+const TRANSITION = "transform 280ms cubic-bezier(0.4, 0, 0.2, 1)";
 
 export function WormMascot({
   className,
@@ -159,7 +164,7 @@ export function WormMascot({
           className="worm-transition"
           style={{
             transform: `translate(${EYE_CX + pupilOffset.x}px, ${EYE_CY + pupilOffset.y}px)`,
-            transition: "transform 120ms ease-out",
+            transition: TRANSITION,
           }}
         >
           <ellipse
@@ -177,7 +182,7 @@ export function WormMascot({
           style={{
             transform: `translate(${v.rectX}px, ${v.rectY}px) rotate(${v.rectRotate}deg)`,
             transformOrigin: "0 0",
-            transition: "transform 200ms ease-out",
+            transition: TRANSITION,
           }}
         >
           <rect
@@ -200,34 +205,17 @@ export function WormMascot({
             fill={colors.teeth}
           />
         </g>
-        {/* Teeth - no shadow, crossfade between states */}
-        <g>
+        {/* Teeth - smooth translateY animation between states */}
+        <g
+          className="worm-transition"
+          style={{
+            transform: `translateY(${v.teethY}px)`,
+            transition: TRANSITION,
+          }}
+        >
           <path
             d="M19.3115 36.166H21.7115L21.3115 42.166H19.7115L19.3115 36.166Z"
             fill={colors.teeth}
-            className="worm-transition"
-            style={{
-              opacity: state === "idle" ? 1 : 0,
-              transition: "opacity 150ms ease-out",
-            }}
-          />
-          <path
-            d="M19.3115 37.7656H21.7115L21.3115 43.7656H19.7115L19.3115 37.7656Z"
-            fill={colors.teeth}
-            className="worm-transition"
-            style={{
-              opacity: state === "searching" ? 1 : 0,
-              transition: "opacity 150ms ease-out",
-            }}
-          />
-          <path
-            d="M19.3115 36.9668H21.7115L21.3115 42.9668H19.7115L19.3115 36.9668Z"
-            fill={colors.teeth}
-            className="worm-transition"
-            style={{
-              opacity: state === "hover" ? 1 : 0,
-              transition: "opacity 150ms ease-out",
-            }}
           />
         </g>
 
@@ -236,7 +224,7 @@ export function WormMascot({
           className={`worm-transition ${state === "hover" ? "worm-antenna-hover" : ""}`}
           style={{
             opacity: v.antennae === "idle" ? 1 : 0,
-            transition: "opacity 150ms ease-out",
+            transition: "opacity 250ms cubic-bezier(0.4, 0, 0.2, 1)",
             pointerEvents: "none",
           }}
         >
@@ -261,7 +249,7 @@ export function WormMascot({
           className={`worm-transition ${state === "hover" ? "worm-antenna-hover" : ""}`}
           style={{
             opacity: v.antennae === "tilted" ? 1 : 0,
-            transition: "opacity 150ms ease-out",
+            transition: "opacity 250ms cubic-bezier(0.4, 0, 0.2, 1)",
             pointerEvents: "none",
           }}
         >
