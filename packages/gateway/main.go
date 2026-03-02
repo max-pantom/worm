@@ -15,6 +15,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -73,6 +74,61 @@ type streamCtx struct {
 	done      chan struct{}
 	flusher   http.Flusher
 	setCookie string // slug for Set-Cookie so asset requests get routed
+}
+
+// overlayInjectWriter buffers HTML responses for owners and injects the overlay script before </body>.
+type overlayInjectWriter struct {
+	w      http.ResponseWriter
+	slug   string
+	status int
+	buf    bytes.Buffer
+	inject bool
+}
+
+func (o *overlayInjectWriter) Header() http.Header { return o.w.Header() }
+
+func (o *overlayInjectWriter) WriteHeader(status int) {
+	ct := o.w.Header().Get("Content-Type")
+	if strings.Contains(strings.ToLower(ct), "text/html") {
+		o.status = status
+		o.inject = true
+		return
+	}
+	o.w.WriteHeader(status)
+}
+
+func (o *overlayInjectWriter) Write(p []byte) (int, error) {
+	if o.inject {
+		o.buf.Write(p)
+		return len(p), nil
+	}
+	return o.w.Write(p)
+}
+
+func (o *overlayInjectWriter) FlushInject() {
+	if !o.inject {
+		return
+	}
+	body := o.buf.Bytes()
+	script := []byte(fmt.Sprintf(`<script defer src="/.wormkey/overlay.js?slug=%s"></script>`, url.QueryEscape(o.slug)))
+	lower := bytes.ToLower(body)
+	idx := bytes.Index(lower, []byte("</body>"))
+	if idx >= 0 {
+		var out bytes.Buffer
+		out.Write(body[:idx])
+		out.Write(script)
+		out.Write(body[idx:])
+		body = out.Bytes()
+	} else {
+		var out bytes.Buffer
+		out.Write(body)
+		out.Write(script)
+		body = out.Bytes()
+	}
+	o.w.Header().Del("Transfer-Encoding")
+	o.w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+	o.w.WriteHeader(o.status)
+	o.w.Write(body)
 }
 
 type policyPatch struct {
@@ -178,20 +234,26 @@ func resolveSlug(r *http.Request) string {
 	return ""
 }
 
-// Worm mascot SVG (idle state, variant 1)
-const mascotSVG = `<svg width="80" height="94" viewBox="0 0 40 47" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto 1rem">
-<path fill-rule="evenodd" clip-rule="evenodd" d="M16.1768 6.76665C16.8585 4.19156 19.0178 2.48157 21.1738 2.89262C22.9259 3.22675 24.1639 4.86419 24.3984 6.88579C33.3281 8.88981 40 16.8659 40 26.4004C39.9999 37.446 31.0456 46.4004 20 46.4004C8.95439 46.4004 0.000145094 37.446 0 26.4004C0 16.6623 6.96001 8.55093 16.1768 6.76665Z" fill="#D9D9D9"/>
-<ellipse cx="20.2" cy="23.8" rx="5" ry="6.19" fill="#fff"/>
-<ellipse cx="20.2" cy="23.8" rx="2.14" ry="3.1" fill="#161616"/>
-<g transform="translate(12.8,18.36) rotate(-11)">
-<rect width="12.48" height="5.6" fill="#D9D9D9"/>
-</g>
-<path d="M15.71 36.97H18.11L17.71 42.97H16.11L15.71 36.97Z" fill="#A3A3A3"/>
-<path d="M22.8 36.8H25.2L24.8 42.8H23.2L22.8 36.8Z" fill="#A3A3A3"/>
-<path d="M19.31 36.17H21.71L21.31 42.17H19.71L19.31 36.17Z" fill="#A3A3A3"/>
-<path d="M5.1 13.9L6.52 15.32M5.1 15.32L6.52 13.9" stroke="#D9D9D9" stroke-width="0.6" stroke-linecap="round"/>
-<path d="M33.1 13.9L34.52 15.32M33.1 15.32L34.52 13.9" stroke="#D9D9D9" stroke-width="0.6" stroke-linecap="round"/>
-</svg>`
+// Interactive mascot SVG with ids for variant cycling (matches WormMascot COLOR_VARIANTS)
+const mascotHTML = `<div id="worm-mascot-wrap" style="cursor:pointer;display:inline-block;margin:0 auto 0.5rem" onclick="wormCycle()" title="Click to change colors">
+<svg width="80" height="94" viewBox="0 0 40 47" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block">
+<path id="w-body" fill-rule="evenodd" clip-rule="evenodd" d="M16.1768 6.76665C16.8585 4.19156 19.0178 2.48157 21.1738 2.89262C22.9259 3.22675 24.1639 4.86419 24.3984 6.88579C33.3281 8.88981 40 16.8659 40 26.4004C39.9999 37.446 31.0456 46.4004 20 46.4004C8.95439 46.4004 0.000145094 37.446 0 26.4004C0 16.6623 6.96001 8.55093 16.1768 6.76665Z" fill="#D9D9D9"/>
+<ellipse id="w-eyes" cx="20.2" cy="23.8" rx="5" ry="6.19" fill="#fff"/>
+<ellipse id="w-pupil" cx="20.2" cy="23.8" rx="2.14" ry="3.1" fill="#161616"/>
+<g transform="translate(12.8,18.36) rotate(-11)"><rect id="w-antenna-r" width="12.48" height="5.6" fill="#D9D9D9"/></g>
+<path id="w-teeth1" d="M15.71 36.97H18.11L17.71 42.97H16.11L15.71 36.97Z" fill="#A3A3A3"/>
+<path id="w-teeth2" d="M22.8 36.8H25.2L24.8 42.8H23.2L22.8 36.8Z" fill="#A3A3A3"/>
+<path id="w-teeth3" d="M19.31 36.17H21.71L21.31 42.17H19.71L19.31 36.17Z" fill="#A3A3A3"/>
+<path id="w-ant-l" d="M5.1 13.9L6.52 15.32M5.1 15.32L6.52 13.9" stroke="#D9D9D9" stroke-width="0.6" stroke-linecap="round"/>
+<path id="w-ant-r" d="M33.1 13.9L34.52 15.32M33.1 15.32L34.52 13.9" stroke="#D9D9D9" stroke-width="0.6" stroke-linecap="round"/>
+</svg>
+</div>
+<p class="worm-hint" style="font-size:10px;color:#525252;margin:-0.25rem 0 1rem">Click the worm</p>
+<script>
+var wormV=[{b:"#D9D9D9",e:"#fff",p:"#161616",t:"#A3A3A3",a:"#D9D9D9"},{b:"#FFEA2A",e:"#000",p:"#fff",t:"#F00",a:"#FFE62A"},{b:"#2067FF",e:"#000",p:"#fff",t:"#FF67FF",a:"#248BF3"},{b:"#6BFF20",e:"#fff",p:"#000",t:"#FFFF3C",a:"#9CF324"},{b:"#FF2A2D",e:"#000",p:"#FFEA2A",t:"#fff",a:"#D90407"},{b:"#A855F7",e:"#E9D5FF",p:"#581C87",t:"#F0ABFC",a:"#C084FC"},{b:"#000",e:"#9B9B9B",p:"#FFF",t:"#D9D9D9",a:"#010101"},{b:"#F97316",e:"#FED7AA",p:"#9A3412",t:"#FB923C",a:"#FDBA74"}];
+var wormI=0;
+function wormCycle(){wormI=(wormI+1)%8;var v=wormV[wormI];var d=document;["w-body","w-eyes","w-pupil","w-teeth1","w-teeth2","w-teeth3"].forEach(function(id){var el=d.getElementById(id);if(el)el.setAttribute("fill",id.startsWith("w-teeth")?v.t:id==="w-body"?v.b:id==="w-eyes"?v.e:v.p);});["w-antenna-r","w-ant-l","w-ant-r"].forEach(function(id){var el=d.getElementById(id);if(el)el.setAttribute(el.tagName==="rect"?"fill":"stroke",v.a);});var h=d.querySelector(".worm-hint");if(h)h.style.display="none";}
+</script>`
 
 func writeWormholeNotActive(w http.ResponseWriter) {
 	writeErrorPage(w, http.StatusBadGateway, "Wormhole not active", "No tunnel is connected. Run <code>wormkey http &lt;port&gt;</code> to open a wormhole.")
@@ -199,6 +261,30 @@ func writeWormholeNotActive(w http.ResponseWriter) {
 
 func writeInvalidSlug(w http.ResponseWriter) {
 	writeErrorPage(w, http.StatusNotFound, "Invalid wormhole link", "This link is invalid or the wormhole has expired.")
+}
+
+func writeLockedByOwner(w http.ResponseWriter) {
+	writeErrorPage(w, http.StatusUnauthorized, "Wormhole locked", "The owner has locked this wormhole. Ask them to unlock it.")
+}
+
+func writePasswordRequired(w http.ResponseWriter) {
+	writeErrorPage(w, http.StatusUnauthorized, "Password required", "This wormhole requires a password. Add <code>?wormkey_password=YOUR_PASSWORD</code> to the URL.")
+}
+
+func writeViewerRemoved(w http.ResponseWriter) {
+	writeErrorPage(w, http.StatusForbidden, "Viewer removed", "You were removed by the owner.")
+}
+
+func writeTooManyViewers(w http.ResponseWriter) {
+	writeErrorPage(w, http.StatusTooManyRequests, "Too many viewers", "This wormhole has reached its viewer limit. Try again later.")
+}
+
+func writePathBlocked(w http.ResponseWriter) {
+	writeErrorPage(w, http.StatusForbidden, "Path blocked", "The owner has blocked access to this path.")
+}
+
+func writeTunnelWriteFailed(w http.ResponseWriter) {
+	writeErrorPage(w, http.StatusBadGateway, "Connection lost", "The tunnel connection was lost. The owner may need to restart <code>wormkey</code>.")
 }
 
 func writeErrorPage(w http.ResponseWriter, status int, title, message string) {
@@ -220,7 +306,7 @@ a:hover{text-decoration:underline}
 </head>
 <body>
 <div class="wrap">
-` + mascotSVG + `
+` + mascotHTML + `
 <h1>` + title + `</h1>
 <p>` + message + `</p>
 <p style="margin-top:1.5rem"><a href="https://wormkey.run">wormkey.run</a></p>
@@ -771,8 +857,12 @@ func handleTunnel(tunnels *sync.Map, closedSlugs *sync.Map, controlPlaneURL stri
 				}
 			case FrameStreamEnd:
 				if ctx, ok := tc.streams.LoadAndDelete(streamID); ok {
+					sc := ctx.(*streamCtx)
+					if iw, ok := sc.w.(*overlayInjectWriter); ok {
+						iw.FlushInject()
+					}
 					tc.activeStreams.Add(-1)
-					close(ctx.(*streamCtx).done)
+					close(sc.done)
 				}
 			case FrameStreamCancel:
 				if ctx, ok := tc.streams.LoadAndDelete(streamID); ok {
@@ -806,7 +896,7 @@ func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 			_, kicked := tc.kickedViewers[viewerID]
 			tc.viewerMu.RUnlock()
 			if kicked {
-				http.Error(w, "Viewer removed by owner", 403)
+				writeViewerRemoved(w)
 				return
 			}
 			tc.upsertViewer(viewerID, r.RemoteAddr)
@@ -816,7 +906,7 @@ func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 		policy := tc.policy
 		tc.policyMu.RUnlock()
 		if !policy.Public && !owner {
-			http.Error(w, "Locked by owner", 401)
+			writeLockedByOwner(w)
 			return
 		}
 		if !owner && policy.Password != "" {
@@ -829,18 +919,18 @@ func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 				setCookie(w, "wormkey_pass", qp, true)
 			}
 			if password != policy.Password {
-				http.Error(w, "Password required", 401)
+				writePasswordRequired(w)
 				return
 			}
 		}
 		if !owner && policy.MaxConcurrentViewers > 0 && len(tc.snapshotViewers()) >= policy.MaxConcurrentViewers {
-			http.Error(w, "Too many viewers", 429)
+			writeTooManyViewers(w)
 			return
 		}
 		if !owner && len(policy.BlockPaths) > 0 {
 			for _, p := range policy.BlockPaths {
 				if p != "" && strings.HasPrefix(r.URL.Path, p) {
-					http.Error(w, "Path blocked", 403)
+					writePathBlocked(w)
 					return
 				}
 			}
@@ -855,7 +945,7 @@ func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 		binary.BigEndian.PutUint32(frame[1:5], streamID)
 		copy(frame[5:], buf.Bytes())
 		if err := tc.writeFrame(frame); err != nil {
-			http.Error(w, "Tunnel write failed", 502)
+			writeTunnelWriteFailed(w)
 			return
 		}
 		done := make(chan struct{})
@@ -864,8 +954,12 @@ func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 		if slugFromPath || r.URL.Query().Get("slug") != "" || extractSlugFromHost(r.Host) == slug {
 			setCookie = slug
 		}
+		respW := http.ResponseWriter(w)
+		if owner {
+			respW = &overlayInjectWriter{w: w, slug: slug}
+		}
 		tc.activeStreams.Add(1)
-		tc.streams.Store(streamID, &streamCtx{w: w, done: done, flusher: flusher, setCookie: setCookie})
+		tc.streams.Store(streamID, &streamCtx{w: respW, done: done, flusher: flusher, setCookie: setCookie})
 		sendStreamEnd := func() {
 			f := make([]byte, 5)
 			f[0] = FrameStreamEnd
