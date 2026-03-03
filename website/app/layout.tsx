@@ -7,11 +7,25 @@ import { ThemeProvider } from "./ThemeProvider";
 import Script from "next/script";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://wormkey.run"),
   title: "Wormkey — Open a wormhole to your localhost",
   description:
-    "Share your dev server instantly. A developer tool that exposes a local server to a secure public URL.",
+    "Generate a public URL for your local app in seconds.",
   icons: {
     icon: "/icon.svg",
+  },
+  openGraph: {
+    title: "Wormkey — Open a wormhole to your localhost",
+    description:
+      "Generate a public URL for your local app in seconds.",
+    siteName: "Wormkey",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Wormkey — Open a wormhole to your localhost",
+    description:
+      "Generate a public URL for your local app in seconds.",
   },
 };
 
