@@ -10,17 +10,17 @@ export const metadata = {
 export default function BlogPage() {
   return (
     <div className="min-h-dvh bg-[var(--bg)] text-[var(--fg)]">
-      <main className="mx-auto max-w-xl px-6 pt-10 pb-20">
+      <main className="mx-auto max-w-xl px-4 pt-10 pb-20 sm:px-6">
         <Link
           href="/"
-          className="inline-flex items-center gap-2 text-sm text-[var(--muted-fg)] hover:text-[var(--fg)] transition-colors mb-8"
+          className="inline-flex min-h-[44px] items-center gap-2 py-2 text-sm text-[var(--muted-fg)] transition-colors hover:text-[var(--fg)] touch-manipulation mb-8"
         >
           ← Back
         </Link>
 
         <article>
           <header className="mb-10">
-            <h1 className="text-2xl font-semibold text-[var(--fg)] leading-tight">
+            <h1 className="text-2xl font-bold text-[var(--fg)] leading-tight">
               How Wormkey works — and why I built it
             </h1>
             <p className="mt-2 text-sm text-[var(--muted-fg)]">
@@ -28,56 +28,56 @@ export default function BlogPage() {
             </p>
           </header>
 
-          <div className="space-y-6 text-[var(--fg)] text-[15px] leading-relaxed">
-            <h2 className="text-lg font-semibold mb-4 text-[var(--fg)]">
+          <div className="space-y-6 text-[15px] leading-relaxed">
+            <h2 className="text-lg font-bold mb-4 text-[var(--fg)]">
               Why I built it
             </h2>
 
-            <p>
+            <p className="text-[var(--muted-fg)]">
               A friend of mine couldn't share his demo because of something to do with Vercel. I don't know why exactly, but we tried a lot of things and couldn't get it to work. So I built Wormkey.
             </p>
 
-            <p>
-              It's <strong>much faster</strong> than ngrok or Cloudflare Tunnel. It's <strong>more accessible for non-developers</strong> — no signup, no dashboard, no DNS. Just run a command and share the link. Easy.
+            <p className="text-[var(--muted-fg)]">
+              It's <strong className="text-[var(--fg)]">much faster</strong> than ngrok or Cloudflare Tunnel. It's <strong className="text-[var(--fg)]">more accessible for non-developers</strong> — no signup, no dashboard, no DNS. Just run a command and share the link. Easy.
             </p>
 
-            <p>
+            <p className="text-[var(--muted-fg)]">
               It's not a deploy platform. It's not a hosting provider. It's a controlled wormhole from your laptop to the internet. When you're done, you close the tunnel and it's gone.
             </p>
 
-            <h2 className="text-lg font-semibold mt-10 mb-4 text-[var(--fg)]">
+            <h2 className="text-lg font-bold mt-10 mb-4 text-[var(--fg)]">
               How it works
             </h2>
 
-            <p>
-              When you run <code className="rounded bg-[var(--code-bg)] px-1.5 py-0.5 text-[13px] font-mono">wormkey http 3000</code>, three things happen:
+            <p className="text-[var(--muted-fg)]">
+              When you run <code className="rounded bg-[var(--code-bg)] px-1.5 py-0.5 text-[13px] font-mono text-[var(--fg)]">wormkey http 3000</code>, three things happen:
             </p>
 
-            <ol className="list-decimal list-inside space-y-3 text-[var(--fg)]">
+            <ol className="list-decimal list-inside space-y-3 text-[var(--muted-fg)]">
               <li>
-                <strong>Session</strong> — The CLI talks to a control plane and gets a unique slug (e.g. <code className="rounded bg-[var(--code-bg)] px-1 py-0.5 text-[13px] font-mono">quiet-lime-82</code>). No auth, no signup. Just a slug.
+                <strong className="text-[var(--fg)]">Session</strong> — The CLI talks to a control plane and gets a unique slug (e.g. <code className="rounded bg-[var(--code-bg)] px-1 py-0.5 text-[13px] font-mono text-[var(--fg)]">quiet-lime-82</code>). No auth, no signup. Just a slug.
               </li>
               <li>
-                <strong>Tunnel</strong> — The CLI opens a WebSocket to an edge gateway and keeps it open. Traffic flows through that pipe: HTTP, WebSocket, everything. Your app stays on your machine.
+                <strong className="text-[var(--fg)]">Tunnel</strong> — The CLI opens a WebSocket to an edge gateway and keeps it open. Traffic flows through that pipe: HTTP, WebSocket, everything. Your app stays on your machine.
               </li>
               <li>
-                <strong>Public URL</strong> — Anyone can hit <code className="rounded bg-[var(--code-bg)] px-1 py-0.5 text-[13px] font-mono">wormkey.run/s/quiet-lime-82</code> and reach your localhost. The gateway terminates TLS, routes by slug, and streams requests back and forth.
+                <strong className="text-[var(--fg)]">Public URL</strong> — Anyone can hit <code className="rounded bg-[var(--code-bg)] px-1 py-0.5 text-[13px] font-mono text-[var(--fg)]">wormkey.run/s/quiet-lime-82</code> and reach your localhost. The gateway terminates TLS, routes by slug, and streams requests back and forth.
               </li>
             </ol>
 
-            <p>
+            <p className="text-[var(--muted-fg)]">
               The protocol is simple: binary frames over WebSocket. Open stream, send data, close stream. HTTP requests become streams. WebSocket upgrades become duplex pipes. No magic, just plumbing.
             </p>
 
-            <h2 className="text-lg font-semibold mt-10 mb-4 text-[var(--fg)]">
+            <h2 className="text-lg font-bold mt-10 mb-4 text-[var(--fg)]">
               Architecture
             </h2>
 
-            <p>
+            <p className="text-[var(--muted-fg)]">
               Here’s how the pieces fit together:
             </p>
 
-            <div className="my-8 overflow-x-auto rounded-lg bg-[var(--code-bg)] p-6">
+            <div className="my-8 overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--code-bg)] p-6">
               <svg
                 viewBox="0 0 520 220"
                 className="w-full min-w-[400px]"
@@ -206,11 +206,11 @@ export default function BlogPage() {
               </svg>
             </div>
 
-            <p>
+            <p className="text-[var(--muted-fg)]">
               If that sounds useful, give it a try:
             </p>
 
-            <pre className="rounded-lg bg-[var(--code-bg)] p-4 text-[13px] font-mono overflow-x-auto">
+            <pre className="rounded-lg border border-[var(--border)] bg-[var(--code-bg)] p-4 text-[13px] font-mono text-[var(--fg)] overflow-x-auto">
               <code>npm i -g wormkey{`\n`}wormkey http 3000</code>
             </pre>
 
@@ -224,13 +224,45 @@ export default function BlogPage() {
           <BlogMascot />
         </div>
 
-        <div className="mt-12 text-center">
+        <div className="mt-12 flex flex-col items-center gap-6">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--code-bg)] px-4 py-2 text-sm font-medium text-[var(--fg)] hover:opacity-90 transition-opacity"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--code-bg)] px-4 py-3 text-sm font-semibold text-[var(--fg)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] touch-manipulation sm:py-2"
           >
             Get started →
           </Link>
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-[var(--muted-fg)]">
+            <a
+              href="https://x.com/metagravity0"
+              target="_blank"
+              rel="noreferrer"
+              className="border-b border-transparent border-dotted transition-colors hover:border-current hover:text-[var(--accent)] touch-manipulation"
+            >
+              X
+            </a>
+            <a
+              href="https://github.com/max-pantom/worm"
+              target="_blank"
+              rel="noreferrer"
+              className="border-b border-transparent border-dotted transition-colors hover:border-current hover:text-[var(--accent)] touch-manipulation"
+            >
+              GitHub
+            </a>
+            <a
+              href="https://www.npmjs.com/package/wormkey"
+              target="_blank"
+              rel="noreferrer"
+              className="border-b border-transparent border-dotted transition-colors hover:border-current hover:text-[var(--accent)] touch-manipulation"
+            >
+              npm
+            </a>
+            <Link
+              href="/"
+              className="border-b border-transparent border-dotted transition-colors hover:border-current hover:text-[var(--accent)] touch-manipulation"
+            >
+              wormkey.run
+            </Link>
+          </div>
         </div>
       </main>
     </div>

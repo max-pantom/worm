@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { Agentation } from "agentation";
 import "./globals.css";
 import { ThemeProvider } from "./ThemeProvider";
+import { AnnouncementBar } from "./components/AnnouncementBar";
 // import { WormkeyOverlay } from "wormkey";
 import Script from "next/script";
 
@@ -54,6 +55,7 @@ export default function RootLayout({
       </head>
       <body>
         <ThemeProvider>
+          <AnnouncementBar />
           {children}
           {process.env.NODE_ENV === "development" && <Agentation />}
           {/* <WormkeyOverlay slug="swift-dawn-84" />

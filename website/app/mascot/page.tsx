@@ -45,10 +45,12 @@ function LookControl({
   onLookChange,
   enabled,
   className,
+  compact,
 }: {
   onLookChange: (target: { x: number; y: number } | null) => void;
   enabled: boolean;
   className?: string;
+  compact?: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -85,7 +87,7 @@ function LookControl({
       onPointerUp={(e) => e.currentTarget.releasePointerCapture?.(e.pointerId)}
       onPointerCancel={(e) => e.currentTarget.releasePointerCapture?.(e.pointerId)}
       className={`touch-none ${enabled ? "cursor-crosshair" : "cursor-default opacity-60"} ${className ?? ""}`}
-      style={{ width: LOOK_DISK_SIZE, height: LOOK_DISK_SIZE }}
+      style={{ width: compact ? 56 : LOOK_DISK_SIZE, height: compact ? 56 : LOOK_DISK_SIZE }}
     />
   );
 }
@@ -103,13 +105,16 @@ function PartIcon({
   displayColor,
   onClick,
   isActive,
+  compact,
 }: {
   part: keyof WormColors;
   displayColor: string;
   onClick: () => void;
   isActive?: boolean;
+  compact?: boolean;
 }) {
   const label = PART_LABELS[part];
+  const size = compact ? 32 : PART_ICON_SIZE;
   return (
     <button
       type="button"
@@ -118,7 +123,7 @@ function PartIcon({
       className={`group relative flex shrink-0 cursor-pointer rounded-lg p-0.5 transition-opacity hover:opacity-90 ${isActive ? "ring-1 ring-white/40 ring-offset-1 ring-offset-transparent" : ""}`}
       aria-label={`${label} color`}
     >
-      <svg width={PART_ICON_SIZE} height={PART_ICON_SIZE} viewBox="0 0 40 40" fill="none" className="block">
+      <svg width={size} height={size} viewBox="0 0 40 40" fill="none" className="block">
         {/* All shapes scaled to fill ~same area in 40x40 */}
         {part === "body" && (
           <g transform="translate(20,20) scale(0.5) translate(-20,-23.5)">
@@ -177,6 +182,7 @@ function PartRow({
   isActive,
   onToggle,
   onClose,
+  compact,
 }: {
   part: keyof WormColors;
   color: string;
@@ -186,6 +192,7 @@ function PartRow({
   isActive: boolean;
   onToggle: () => void;
   onClose: () => void;
+  compact?: boolean;
 }) {
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -212,14 +219,21 @@ function PartRow({
         displayColor={displayColor}
         onClick={handleClick}
         isActive={isActive}
+        compact={compact}
       />
       {isActive && (
-        <div className="absolute right-full top-1/2 z-30 mr-2 -translate-y-1/2">
-          <div className="squircle overflow-hidden bg-[rgba(109,109,109,0.95)] p-3 shadow-xl backdrop-blur-xl">
+        <div
+          className={`absolute z-30 ${
+            compact
+              ? "left-1/2 top-full mt-2 -translate-x-1/2"
+              : "right-full top-1/2 mr-2 -translate-y-1/2"
+          }`}
+        >
+          <div className="squircle overflow-hidden bg-[rgba(109,109,109,0.95)] p-2 shadow-xl backdrop-blur-xl">
             <HexColorPicker
               color={color}
               onChange={onColorChange}
-              style={{ width: 140, height: 140 }}
+              style={{ width: compact ? 110 : 140, height: compact ? 110 : 140 }}
               className="color-picker-mascot"
             />
             <div className="mt-2 text-center text-[10px] font-medium text-white/90">
@@ -338,7 +352,7 @@ export default function MascotPage() {
   }, [incrementGenerated]);
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[var(--bg)] p-6">
+    <div className="flex min-h-dvh flex-col bg-[var(--bg)] p-4 md:flex-row md:items-center md:justify-center md:p-6">
       {/* Flash overlay on PNG capture */}
       {flash && (
         <div
@@ -350,17 +364,17 @@ export default function MascotPage() {
 
       <Link
         href="/"
-        className="absolute left-6 top-6 text-sm text-[var(--muted-fg)] hover:text-[var(--fg)]"
+        className="absolute left-4 top-4 text-sm text-[var(--muted-fg)] hover:text-[var(--fg)] md:left-6 md:top-6"
       >
         ← Back
       </Link>
 
-      {/* Top center: Worm | Custom tabs */}
-      <div className="fixed left-1/2 top-6 -translate-x-1/2">
-        <div className="flex rounded-full bg-[rgba(109,109,109,0.6)] p-1 backdrop-blur-[20px]">
+      {/* Top center: Worm | Custom tabs - same size as Back link */}
+      <div className="fixed left-1/2 top-4 -translate-x-1/2 md:top-6">
+        <div className="flex rounded-full bg-[rgba(109,109,109,0.6)] p-0.5 backdrop-blur-[20px]">
           <button
             onClick={() => setMode("worm")}
-            className={`rounded-full px-5 py-2 text-sm font-medium transition-colors ${
+            className={`rounded-full px-2.5 py-1 text-sm font-medium transition-colors md:px-4 md:py-1.5 ${
               mode === "worm" ? "bg-white/25 text-white" : "text-white/70 hover:text-white"
             }`}
           >
@@ -368,7 +382,7 @@ export default function MascotPage() {
           </button>
           <button
             onClick={() => setMode("custom")}
-            className={`rounded-full px-5 py-2 text-sm font-medium transition-colors ${
+            className={`rounded-full px-2.5 py-1 text-sm font-medium transition-colors md:px-4 md:py-1.5 ${
               mode === "custom" ? "bg-white/25 text-white" : "text-white/70 hover:text-white"
             }`}
           >
@@ -377,22 +391,83 @@ export default function MascotPage() {
         </div>
       </div>
 
-      {/* Center: mascot */}
-      <div className="scale-[5] shrink-0">
-        <WormMascot
-          variant={activeVariant}
-          customColors={mascotColors}
-          svgRef={svgRef}
-          lookAt={
-          mode === "custom" && lookControlEnabled
-            ? (lookTarget ?? { x: EYE_CX, y: EYE_CY })
-            : undefined
-        }
-        />
+      {/* Main: mascot (mobile: extra bottom padding for fixed bar; desktop: center, sidebar fixed right) */}
+      <div className="mt-14 flex flex-1 flex-col items-center justify-center gap-6 pb-24 md:mt-0 md:pb-0 md:gap-0">
+        {/* Center: mascot */}
+        <div className="scale-[3] shrink-0 md:scale-[5]">
+          <WormMascot
+            variant={activeVariant}
+            customColors={mascotColors}
+            svgRef={svgRef}
+            lookAt={
+              mode === "custom" && lookControlEnabled
+                ? (lookTarget ?? { x: EYE_CX, y: EYE_CY })
+                : undefined
+            }
+          />
+        </div>
+
       </div>
 
-      {/* Center bottom: generated count */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 text-sm font-medium text-[var(--muted-fg)]">
+      {/* Mobile: fixed bottom - worm variants straight line, customizer (no look control) */}
+      <div className="fixed bottom-0 left-0 right-0 flex w-full flex-col items-center gap-2 px-4 pb-4 pt-2 md:hidden">
+        {mode === "worm" ? (
+          <div className="flex w-full max-w-full flex-row flex-wrap items-center justify-center gap-1.5">
+            {([1, 2, 3, 4, 5, 6, 7, 8, 9] as WormVariant[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => setVariant(v)}
+                className={`h-6 w-6 shrink-0 rounded-full transition-all hover:scale-105 sm:h-7 sm:w-7 ${
+                  variant === v ? "ring-1 ring-white/80 ring-offset-1 ring-offset-transparent" : ""
+                }`}
+                style={{ backgroundColor: MASCOT_VARIANT_SWATCHES[v] }}
+                aria-label={`Variant ${v}`}
+                title={`Variant ${v}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex w-full max-w-full min-w-0 flex-row items-center justify-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="squircle flex flex-row flex-nowrap items-center justify-center gap-1 bg-[rgba(109,109,109,0.6)] px-1.5 py-1.5 backdrop-blur-[20px]">
+              <div className="flex flex-row items-center gap-0.5">
+                {PARTS.map(({ key }) => (
+                  <PartRow
+                    key={key}
+                    part={key}
+                    color={customColors[key]}
+                    displayColor={displayColors[key]}
+                    onColorChange={(v) => {
+                      setColorsRevealed(true);
+                      updateCustomColor(key, v);
+                    }}
+                    onReveal={() => setColorsRevealed(true)}
+                    isActive={activePart === key}
+                    onToggle={() => setActivePart((p) => (p === key ? null : key))}
+                    onClose={() => setActivePart(null)}
+                    compact
+                  />
+                ))}
+              </div>
+              <button
+                onClick={downloadPng}
+                className="shrink-0 rounded-lg bg-white/15 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-white/25"
+              >
+                Generate
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="text-sm font-medium text-[var(--muted-fg)]">
+          {generatedCount === null ? (
+            <span className="animate-pulse">…</span>
+          ) : (
+            <span>{generatedCount.toLocaleString()} worms generated</span>
+          )}
+        </div>
+      </div>
+
+      {/* Desktop: count + sidebar fixed right */}
+      <div className="fixed bottom-6 left-1/2 hidden -translate-x-1/2 text-sm font-medium text-[var(--muted-fg)] md:block">
         {generatedCount === null ? (
           <span className="animate-pulse">…</span>
         ) : (
@@ -400,8 +475,8 @@ export default function MascotPage() {
         )}
       </div>
 
-      {/* Side bar: customizer + look control below (Custom only) */}
-      <div className="fixed right-0 top-1/2 flex -translate-y-1/2 flex-col items-end gap-4 pr-4">
+      {/* Desktop: sidebar fixed right */}
+      <div className="fixed right-0 top-1/2 hidden -translate-y-1/2 flex-col items-end gap-4 pr-4 md:flex">
         <div className="squircle flex flex-col gap-1 bg-[rgba(109,109,109,0.6)] px-1.5 py-1.5 backdrop-blur-[20px]">
           {mode === "worm" ? (
             <div className="grid grid-cols-3 gap-1">

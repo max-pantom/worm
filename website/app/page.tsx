@@ -62,9 +62,9 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-dvh bg-[var(--bg)] text-[var(--fg)]">
-      <main className="mx-auto max-w-xl px-6 pt-10 pb-16">
-        <div className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-4">
-          <h1 className="flex items-start gap-1.5 text-xl font-semibold">
+      <main className="mx-auto max-w-xl px-4 pt-10 pb-16 sm:px-6">
+        <div className="grid grid-cols-[1fr_auto] items-center gap-4">
+          <h1 className="flex items-start gap-1.5 text-xl font-bold">
             <span>
               <span className="text-[var(--fg)]">Wormkey</span>
               <span className="font-normal text-[var(--muted-fg)]">.run</span>
@@ -95,18 +95,9 @@ export default function Layout({ children }) {
             </div>
             */}
           </div>
-          <div className="hidden md:flex items-center justify-end">
-            <Link
-              href="/blog"
-              className="rounded-lg px-4 py-2 text-sm font-normal text-[var(--fg)] transition-colors hover:bg-white/10"
-            >
-              Blog
-            </Link>
-          </div>
         </div>
         <p className="mt-12 text-sm leading-6 text-[var(--muted-fg)]">
-          Share your localhost in one command. No account. No dashboard. Just a
-          link.
+          <span className="font-medium text-[var(--fg)]">Share your localhost</span> in one command. No account. No dashboard. Just a link.
         </p>
 
         <div className="mt-8 space-y-2">
@@ -150,7 +141,7 @@ export default function Layout({ children }) {
         </p>
 
         <section className="mt-10">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--fg)]">
             Quick start
           </h2>
           <ol className="mt-3 space-y-2 text-sm text-[var(--muted-fg)]">
@@ -161,7 +152,7 @@ export default function Layout({ children }) {
         </section>
 
         <section className="mt-8">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--fg)]">
             Next.js / React
           </h2>
           <p className="mt-2 text-sm text-[var(--muted-fg)]">
@@ -180,7 +171,7 @@ export default function Layout({ children }) {
         </section>
 
         <section className="mt-8">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--fg)]">
             Optional config
           </h2>
           <div className="mt-2">
@@ -196,7 +187,7 @@ export default function Layout({ children }) {
         </section>
 
         <section className="mt-8">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--fg)]">
             Owner overlay demo
           </h2>
           <p className="mt-2 text-sm text-[var(--muted-fg)]">
@@ -211,7 +202,7 @@ export default function Layout({ children }) {
         </section>
 
         <section className="mt-8">
-          <h2 className="text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--fg)]">
             Owner overlay (script tag)
           </h2>
           <p className="mt-2 text-sm text-[var(--muted-fg)]">
@@ -235,23 +226,23 @@ export default function Layout({ children }) {
           <DemoControlBar onClose={() => setDemoBarVisible(false)} />
         )}
 
-        <footer className="mt-12 flex items-center justify-between border-t border-[var(--border)] pt-6 text-xs text-[var(--muted)]">
+        <footer className="mt-12 flex flex-col gap-4 border-t border-[var(--border)] pt-6 text-xs text-[var(--muted)] sm:flex-row sm:items-center sm:justify-between">
           <span>
             made with love by{" "}
             <a
               href="https://x.com/metagravity0"
               target="_blank"
               rel="noreferrer"
-              className="border-b border-transparent border-dotted hover:border-current hover:text-[var(--fg)]"
+              className="border-b border-transparent border-dotted py-2 transition-colors hover:border-current hover:text-[var(--fg)] touch-manipulation sm:py-0"
             >
               max
             </a>{" "}
             © {year}
           </span>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <Link
               href="/blog"
-              className="border-b border-transparent border-dotted hover:border-current hover:text-[var(--fg)]"
+              className="inline-flex items-center border-b border-transparent border-dotted py-2 transition-colors hover:border-current hover:text-[var(--accent)] touch-manipulation sm:py-0"
             >
               blog
             </Link>
@@ -265,7 +256,7 @@ export default function Layout({ children }) {
               href="https://www.npmjs.com/package/wormkey"
               target="_blank"
               rel="noreferrer"
-              className="border-b border-transparent border-dotted hover:border-current hover:text-[#60a5fa]"
+              className="inline-flex items-center border-b border-transparent border-dotted py-2 transition-colors hover:border-current hover:text-[var(--accent)] touch-manipulation sm:py-0"
             >
               {npmVersion ? `v${npmVersion}` : "npm"}
             </a>
@@ -273,7 +264,7 @@ export default function Layout({ children }) {
               href="https://github.com/max-pantom/worm"
               target="_blank"
               rel="noreferrer"
-              className="border-b border-transparent border-dotted hover:border-current hover:text-[#60a5fa]"
+              className="inline-flex items-center border-b border-transparent border-dotted py-2 transition-colors hover:border-current hover:text-[var(--accent)] touch-manipulation sm:py-0"
             >
               github
             </a>
@@ -488,7 +479,7 @@ function CodeBlock({
   dark?: boolean;
 }) {
   return (
-    <div className="relative flex items-start justify-between gap-3 self-stretch rounded-md bg-[var(--code-bg)] p-2.5 shadow-[inset_0px_0px_0px_1px_rgba(59,59,59,0.1)] transition-shadow focus-within:shadow-[inset_0px_0px_0px_1px_rgba(59,59,59,0.25)]">
+    <div className="relative flex items-start justify-between gap-3 self-stretch rounded-md border border-[var(--border)] bg-[var(--code-bg)] p-2.5 transition-shadow focus-within:ring-1 focus-within:ring-[var(--accent)]">
       <div className="min-w-0 flex-1 overflow-x-auto">
         <SyntaxHighlighter
           language={language}
@@ -514,7 +505,7 @@ function CodeBlock({
         onClick={onCopy}
         className={`shrink-0 font-mono text-[11px] transition-colors ${
           copied
-            ? "text-[#60a5fa]"
+            ? "text-[var(--accent)]"
             : "text-[var(--muted-fg)] hover:text-[var(--fg)]"
         }`}
         aria-label="Copy"
