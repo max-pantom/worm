@@ -160,7 +160,7 @@ export function WormMascot({
       onMouseLeave={onMouseLeave}
     >
       <svg
-        ref={svgRef}
+        ref={svgRef as React.Ref<SVGSVGElement>}
         width="40"
         height="47"
         viewBox="0 0 40 47"
