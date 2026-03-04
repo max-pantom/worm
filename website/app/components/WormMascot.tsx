@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 
 type State = "idle" | "searching" | "hover";
 
-export type WormVariant = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export type WormVariant = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 export const MASCOT_VARIANT_SWATCHES: Record<WormVariant, string> = {
   1: "#D9D9D9",
@@ -15,6 +15,7 @@ export const MASCOT_VARIANT_SWATCHES: Record<WormVariant, string> = {
   6: "#A855F7",
   7: "#000000",
   8: "#F97316",
+  9: "#86EFAC",
 };
 
 const COLOR_VARIANTS: Record<
@@ -29,6 +30,7 @@ const COLOR_VARIANTS: Record<
   6: { body: "#A855F7", eyes: "#E9D5FF", pupil: "#581C87", teeth: "#F0ABFC", antenna: "#C084FC" },
   7: { body: "#000000", eyes: "#9B9B9B", pupil: "#FFFFFF", teeth: "#D9D9D9", antenna: "#010101" },
   8: { body: "#F97316", eyes: "#FED7AA", pupil: "#9A3412", teeth: "#FB923C", antenna: "#FDBA74" },
+  9: { body: "#86EFAC", eyes: "#D1FAE5", pupil: "#065F46", teeth: "#6EE7B7", antenna: "#A7F3D0" },
 };
 
 const EYE_CX = 20.2002;
