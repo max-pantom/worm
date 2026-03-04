@@ -243,8 +243,8 @@ function PartRow({
             <HexColorPicker
               color={color}
               onChange={onColorChange}
-              style={{ width: compact ? 140 : 180, height: compact ? 56 : 72 }}
-              className="color-picker-mascot color-picker-slider"
+              style={{ width: compact ? 200 : 180, height: compact ? 48 : 72 }}
+              className={`color-picker-mascot color-picker-slider ${compact ? "color-picker-mobile-slider" : ""}`}
             />
             <div className="mt-1.5 text-center text-[10px] font-medium text-white/90">
               {color}

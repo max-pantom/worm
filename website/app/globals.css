@@ -64,6 +64,28 @@ body {
   margin-top: 8px;
   border-radius: 7px;
 }
+/* Mobile: tap-friendly slider - hue bar dominant, compact saturation */
+.color-picker-mobile-slider {
+  touch-action: none;
+  --react-colorful__hue-pointer-width: 18px;
+  --react-colorful__hue-pointer-height: 18px;
+  --react-colorful__saturation-pointer-width: 20px;
+  --react-colorful__saturation-pointer-height: 20px;
+}
+.color-picker-mobile-slider .react-colorful__saturation {
+  height: 28px;
+  border-radius: 6px;
+}
+.color-picker-mobile-slider .react-colorful__hue {
+  min-height: 24px;
+  margin-top: 6px;
+  border-radius: 12px;
+  -webkit-tap-highlight-color: transparent;
+}
+.color-picker-mobile-slider .react-colorful__hue-pointer,
+.color-picker-mobile-slider .react-colorful__saturation-pointer {
+  touch-action: none;
+}
 
 @keyframes flash {
   0% {
