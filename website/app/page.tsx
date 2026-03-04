@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import { WormMascot } from "./components/WormMascot";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -95,15 +96,12 @@ export default function Layout({ children }) {
             */}
           </div>
           <div className="hidden md:flex items-center justify-end">
-            <button
-              type="button"
-              onClick={() => setShakeTrigger((t) => t + 1)}
-              className="cursor-not-allowed rounded-lg px-4 py-2 text-sm font-normal text-[var(--fg)] opacity-50 transition-colors hover:bg-white/10 hover:opacity-100"
-              aria-disabled="true"
-              title="Blog coming soon"
+            <Link
+              href="/blog"
+              className="rounded-lg px-4 py-2 text-sm font-normal text-[var(--fg)] transition-colors hover:bg-white/10"
             >
               Blog
-            </button>
+            </Link>
           </div>
         </div>
         <p className="mt-12 text-sm leading-6 text-[var(--muted-fg)]">
@@ -251,6 +249,12 @@ export default function Layout({ children }) {
             © {year}
           </span>
           <div className="flex items-center gap-4">
+            <Link
+              href="/blog"
+              className="border-b border-transparent border-dotted hover:border-current hover:text-[var(--fg)]"
+            >
+              blog
+            </Link>
             {mounted && (
               <ThemeToggle
                 isDark={theme !== "light"}
