@@ -1,67 +1,76 @@
 # Wormkey
 
-**Open a wormhole to your localhost.**
+<p align="center">
+  <strong>Open a wormhole to your localhost.</strong>
+</p>
 
-A developer tool that exposes a local server to a secure public URL instantly.
+<p align="center">
+  Expose your local server to a secure public URL in seconds. Share your work, demo to clients, or test webhooks—no deploy, no config.
+</p>
+
+<p align="center">
+  <a href="https://wormkey.run">wormkey.run</a>
+</p>
 
 ---
 
-## Quick Start (Local Dev)
+## What is Wormkey?
 
-### 1. Start the stack
+Wormkey creates a secure tunnel from the internet to your local machine. Run your app on `localhost`, share a URL, and anyone can access it—without deploying, port forwarding, or VPNs.
+
+- **Instant** — One command, one URL
+- **Secure** — TLS-terminated, owner-controlled
+- **Simple** — No accounts required for basic use
+
+---
+
+## Quick Start
+
+### 1. Install
 
 ```bash
-# Terminal 1: Control Plane
-cd packages/control-plane && npm install && npm run dev
-
-# Terminal 2: Edge Gateway
-cd packages/gateway && go run .
-
-# Terminal 3: CLI (from repo root)
-cd packages/cli && npm install && npm run build
+npm install -g wormkey
+# or
+npx wormkey http 3000
 ```
 
-### 2. Open a wormhole
+### 2. Expose your app
 
 ```bash
-# Start a local server (e.g. on port 3000)
-# In another terminal:
+# Start your local server (e.g. Next.js, Vite, etc.)
+npm run dev
+
+# In another terminal, open a wormhole
 wormkey http 3000
 ```
 
-You'll see:
+You'll get a shareable URL:
+
 ```
 Wormhole open.
-http://localhost:3002?slug=quiet-lime-82
-Owner claim URL (open once):
-http://localhost:3002/.wormkey/owner?slug=quiet-lime-82&token=...
-Path B integration (add in app layout):
-<script defer src="http://localhost:3002/.wormkey/overlay.js?slug=quiet-lime-82"></script>
+https://wormkey.run/s/quiet-lime-82
+
+Owner claim URL (open once for controls):
+https://wormkey.run/.wormkey/owner?slug=quiet-lime-82&token=...
 ```
 
-Visit that URL to reach your localhost.
+Share the first URL. Open the owner URL once to enable in-page controls when viewing through the tunnel.
 
-Open the owner claim URL once to enable owner controls in your browser.
+---
 
-Add the Path B script tag to your app layout to render an in-page Wormkey control bar when your app is viewed through the wormhole URL.
+## Integration
 
-Or install helper package and auto-mount:
+### Option A: Script tag (any framework)
 
-```bash
-npm install @wormkey/overlay
-```
-
-```ts
-import "@wormkey/overlay/auto";
-```
-
-Provide the script URL via a meta tag:
+Add to your app layout:
 
 ```html
-<meta name="wormkey-overlay-url" content="http://localhost:3002/.wormkey/overlay.js?slug=quiet-lime-82" />
+<script defer src="https://wormkey.run/.wormkey/overlay.js?slug=YOUR_SLUG"></script>
 ```
 
-**Or use the React component** (Next.js / React):
+When your app is viewed through the wormhole URL, a Wormkey control bar appears.
+
+### Option B: React / Next.js
 
 ```bash
 npm install wormkey
@@ -76,52 +85,60 @@ export default function RootLayout({ children }) {
     <html>
       <body>
         {children}
-        <WormkeyOverlay
-          gatewayUrl={process.env.NEXT_PUBLIC_WORMKEY_GATEWAY_URL ?? "https://wormkey.run"}
-        />
+        <WormkeyOverlay slug={process.env.NEXT_PUBLIC_WORMKEY_SLUG} />
       </body>
     </html>
   );
 }
 ```
 
-- `gatewayUrl` – Gateway base (default: `NEXT_PUBLIC_WORMKEY_GATEWAY_URL` or `https://wormkey.run`)
-- `slug` – Optional; when viewing at `/s/:slug`, it’s read from the URL
-- `scriptUrl` – Optional; full script URL if you prefer to pass it directly
+### Option C: Auto-mount (meta tag)
+
+```bash
+npm install @wormkey/overlay
+```
+
+```ts
+import "@wormkey/overlay/auto";
+```
+
+```html
+<meta name="wormkey-overlay-url" content="https://wormkey.run/.wormkey/overlay.js?slug=YOUR_SLUG" />
+```
 
 ---
 
-## Architecture
+## CLI Reference
+
+| Command | Description |
+|---------|-------------|
+| `wormkey http <port>` | Expose a port via wormhole |
+| `wormkey http 3000 --auth` | Require basic auth |
+| `wormkey http 5173 --expires 30m` | Limit tunnel lifetime |
+
+---
+
+## Local Development
+
+Run the full stack locally:
+
+```bash
+# Terminal 1: Control plane
+cd packages/control-plane && npm install && npm run dev
+
+# Terminal 2: Edge gateway
+cd packages/gateway && go run .
+
+# Terminal 3: CLI (from repo root)
+cd packages/cli && npm install && npm run build
+wormkey http 3000
+```
 
 | Component | Port | Role |
 |-----------|------|------|
-| **CLI** (`wormkey`) | — | Connects to Edge, forwards traffic to localhost |
+| **CLI** | — | Connects to Edge, forwards traffic to localhost |
 | **Control Plane** | 3001 | Session creation, slug allocation |
 | **Edge Gateway** | 3002 | TLS, routing, stream forwarding |
-
----
-
-## Commands
-
-```bash
-npm i -g wormkey       # Install globally
-npx wormkey http 3000  # Or run without installing
-```
-
-```
-wormkey login          # Authenticate (v0: not implemented)
-wormkey http <port>    # Expose port via wormhole
-wormkey http 3000 --auth
-wormkey http 5173 --expires 30m
-wormkey status         # Active tunnel (v0: not implemented)
-wormkey close          # Close tunnel (v0: use Ctrl+C)
-```
-
----
-
-## Protocol
-
-See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the tunnel protocol specification.
 
 ---
 
@@ -130,12 +147,14 @@ See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the tunnel protocol specification.
 ```
 worm/
 ├── docs/
-│   └── PROTOCOL.md      # Tunnel protocol v0
+│   ├── PROTOCOL.md   # Tunnel protocol specification
+│   └── DEPLOY.md     # Production deployment guide
 ├── packages/
-│   ├── cli/             # wormkey npm package (Node/TypeScript)
+│   ├── cli/          # wormkey npm package (Node/TypeScript)
 │   ├── control-plane/   # Session API (Node/Fastify)
-│   ├── gateway/         # Edge gateway (Go)
-│   └── overlay/         # Overlay helpers (React, Express, auto)
+│   ├── gateway/      # Edge gateway (Go)
+│   └── overlay/      # Overlay helpers (React, Express, auto)
+├── website/          # wormkey.run (Next.js)
 └── README.md
 ```
 
@@ -143,13 +162,25 @@ worm/
 
 ## Environment
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `WORMKEY_CONTROL_PLANE` | http://localhost:3001 | Control plane URL |
-| `WORMKEY_EDGE` | http://localhost:3002 | Edge URL (CLI override) |
-| `WORMKEY_EDGE_URL` | http://localhost:3002 | Edge URL (control plane) |
-| `WORMKEY_BASE_DOMAIN` | wormkey.run | Public domain |
-| `PORT` | 3001 / 3002 | Service port |
+For local development, see `.env.example`. Key variables:
+
+| Variable | Description |
+|----------|-------------|
+| `WORMKEY_CONTROL_PLANE_URL` | Control plane API URL |
+| `WORMKEY_EDGE_URL` | Edge gateway WebSocket URL (e.g. `ws://localhost:3002/tunnel`) |
+
+---
+
+## Documentation
+
+- [Protocol](docs/PROTOCOL.md) — Tunnel protocol specification
+- [Deploy](docs/DEPLOY.md) — Production deployment (Render, Vercel)
+
+---
+
+## License
+
+MIT
 
 ---
 
