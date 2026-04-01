@@ -8,7 +8,7 @@ import cors from "@fastify/cors";
 
 const ADJECTIVES = [
   "quiet", "bold", "swift", "calm", "bright", "soft", "warm", "cool",
-  "deep", "flat", "wild", "mild", "dark", "pale", "pure", "rare", "max" ,
+  "deep", "flat", "wild", "mild", "dark", "pale", "pure", "rare", "max",
 ];
 const NOUNS = [
   "lime", "mint", "sage", "rose", "sky", "sea", "sand", "snow",
@@ -80,11 +80,11 @@ async function main() {
   }
 
   fastify.post<{
-    Body: { port?: number; authMode?: string; expiresIn?: string };
+    Body: { port?: number; authMode?: string; expiresIn?: string; slug?: string; forcePath?: boolean };
   }>("/sessions", async (req, reply) => {
-    const { port = 3000, authMode = "none", expiresIn = "24h" } = req.body ?? {};
+    const { port = 3000, authMode = "none", expiresIn = "24h", slug: requestedSlug, forcePath = false } = req.body ?? {};
 
-    const slug = randomSlug();
+    const slug = requestedSlug || randomSlug();
     const ownerToken = randomToken();
     const sessionToken = `${slug}.${ownerToken}`;
     const sessionId = `sess_${randomToken()}`;
@@ -92,10 +92,18 @@ async function main() {
     // All URLs derived from env (canonical origin). Never use request host.
     const publicBase = PUBLIC_BASE_URL.replace(/\/$/, "");
     const edgeBase = EDGE_BASE_URL.replace(/\/$/, "");
-    const publicUrl = `${publicBase}/s/${slug}`;
+    
+    // Choose URL format: Subdomain by default if domain is set, unless forcePath is specified
+    const domain = process.env.WORMKEY_DOMAIN;
+    let publicUrl = `${publicBase}/s/${slug}`;
+    if (domain && !forcePath) {
+      const protocol = publicBase.split(":")[0];
+      publicUrl = `${protocol}://${slug}.${domain}`;
+    }
+
     const edgeUrl = `${edgeBase}/tunnel`;
-    const ownerUrl = `${publicBase}/.wormkey/owner?slug=${slug}&token=${ownerToken}`;
-    const overlayScriptUrl = `${publicBase}/.wormkey/overlay.js?slug=${slug}`;
+    const ownerUrl = `${publicUrl}/.wormkey/owner?token=${ownerToken}`;
+    const overlayScriptUrl = `${publicUrl}/.wormkey/overlay.js`;
 
     const expiresMs =
       expiresIn.endsWith("m")

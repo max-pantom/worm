@@ -59,7 +59,7 @@ export default function RootLayout({
           {children}
           {process.env.NODE_ENV === "development" && <Agentation />}
           {/* <WormkeyOverlay slug="swift-dawn-84" />
-          <Script defer src="https://t.wormkey.run/.wormkey/overlay.js?slug=swift-dawn-84"></Script> */}
+          <Script defer src="https://wift-dawn-84.wormkey.run/.wormkey/overlay.js></Script> */}
           <Analytics />
         </ThemeProvider>
       </body>

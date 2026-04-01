@@ -17,7 +17,7 @@ export interface CreateSessionResponse {
 
 export async function createSession(
   controlPlaneUrl: string,
-  options: { port: number; auth?: boolean; expires?: string }
+  options: { port: number; auth?: boolean; expires?: string; forcePath?: boolean }
 ): Promise<CreateSessionResponse> {
   const res = await fetch(`${controlPlaneUrl}/sessions`, {
     method: "POST",
@@ -26,6 +26,7 @@ export async function createSession(
       port: options.port,
       authMode: options.auth ? "basic" : "none",
       expiresIn: options.expires ?? "24h",
+      forcePath: options.forcePath,
     }),
   });
 

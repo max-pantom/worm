@@ -4,10 +4,10 @@
 package main
 
 import (
-	_ "embed"
 	"bufio"
 	"bytes"
 	"crypto/rand"
+	_ "embed"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -185,18 +185,38 @@ func randomSecret(n int) string {
 }
 
 // extractSlugFromHost extracts slug from host like "quiet-lime-82.wormkey.run" or "quiet-lime-82.wormkey.run:3002".
-// Assumes format: slug.wormkey.run (at least 3 dot-separated parts).
 func extractSlugFromHost(host string) string {
 	host = strings.Split(host, ":")[0] // strip port
-	parts := strings.Split(host, ".")
-	if len(parts) < 3 {
+	domain := os.Getenv("WORMKEY_DOMAIN")
+	if domain == "" {
+		// Fallback for local development if domain not set: assumes format slug.wormkey.run (at least 3 parts)
+		parts := strings.Split(host, ".")
+		if len(parts) >= 3 {
+			return parts[0]
+		}
 		return ""
 	}
-	return parts[0]
+
+	// Wildcard: support both slug.domain and subdomains of subdomains if domain is set correctly
+	domain = strings.Split(domain, ":")[0] // strip port from domain
+	if !strings.HasSuffix(host, "."+domain) {
+		return ""
+	}
+	return strings.TrimSuffix(host, "."+domain)
 }
 
 func resolveSlug(r *http.Request) string {
-	// 1. Path-based: /s/:slug (no wildcard TLS needed)
+	// 1. Query-based (Highest priority for management tools/claims)
+	if s := r.URL.Query().Get("slug"); s != "" {
+		return s
+	}
+
+	// 2. Host-based (Primary for tunnels) - e.g. slug.wormkey.run
+	if s := extractSlugFromHost(r.Host); s != "" {
+		return s
+	}
+
+	// 3. Path-based (Legacy fallback) - e.g. wormkey.run/s/slug
 	if strings.HasPrefix(r.URL.Path, "/s/") {
 		rest := r.URL.Path[3:] // skip "/s/"
 		idx := strings.Index(rest, "/")
@@ -218,22 +238,7 @@ func resolveSlug(r *http.Request) string {
 			return slug
 		}
 	}
-	// 2. Query fallback (?slug=)
-	slug := r.URL.Query().Get("slug")
-	if slug != "" {
-		return slug
-	}
-	// 3. Cookie (for asset requests like /_next/... or /assets/...)
-	if c, err := r.Cookie("wormkey_slug"); err == nil && c.Value != "" {
-		return c.Value
-	}
-	if c, err := r.Cookie("wormkey"); err == nil && c.Value != "" {
-		return c.Value
-	}
-	// 4. Host-based (slug.wormkey.run)
-	if s := extractSlugFromHost(r.Host); s != "" {
-		return s
-	}
+
 	return ""
 }
 
@@ -520,10 +525,8 @@ func main() {
 			http.Error(w, "Invalid owner token", 401)
 			return
 		}
-		setCookie(w, "wormkey_slug", slug, false)
-		setCookie(w, "wormkey", slug, false)
 		setCookie(w, "wormkey_owner", token, true)
-		http.Redirect(w, r, "/s/"+slug, http.StatusFound)
+		http.Redirect(w, r, "/", http.StatusFound)
 	})
 
 	mux.HandleFunc("/.wormkey/me", func(w http.ResponseWriter, r *http.Request) {
@@ -848,10 +851,6 @@ func handleTunnel(tunnels *sync.Map, closedSlugs *sync.Map, controlPlaneURL stri
 								sc.w.Header().Set(k, v)
 							}
 						}
-						if sc.setCookie != "" {
-							// wormkey_slug ensures asset requests (/_next/..., /assets/...) route correctly
-							sc.w.Header().Add("Set-Cookie", "wormkey_slug="+sc.setCookie+"; Path=/; SameSite=Lax")
-						}
 						sc.w.WriteHeader(status)
 						if sc.flusher != nil {
 							sc.flusher.Flush()
@@ -887,7 +886,6 @@ func handleTunnel(tunnels *sync.Map, closedSlugs *sync.Map, controlPlaneURL stri
 
 func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		slugFromPath := strings.HasPrefix(r.URL.Path, "/s/")
 		slug := resolveSlug(r)
 		if slug == "" {
 			writeInvalidSlug(w)
@@ -965,16 +963,12 @@ func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 		}
 		done := make(chan struct{})
 		flusher, _ := w.(http.Flusher)
-		setCookie := ""
-		if slugFromPath || r.URL.Query().Get("slug") != "" || extractSlugFromHost(r.Host) == slug {
-			setCookie = slug
-		}
 		respW := http.ResponseWriter(w)
 		if owner {
 			respW = &overlayInjectWriter{w: w, slug: slug}
 		}
 		tc.activeStreams.Add(1)
-		tc.streams.Store(streamID, &streamCtx{w: respW, done: done, flusher: flusher, setCookie: setCookie})
+		tc.streams.Store(streamID, &streamCtx{w: respW, done: done, flusher: flusher})
 		sendStreamEnd := func() {
 			f := make([]byte, 5)
 			f[0] = FrameStreamEnd

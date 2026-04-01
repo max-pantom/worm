@@ -83,6 +83,7 @@ program
   .command("http <port>")
   .description("Expose local port via wormhole")
   .option("--auth", "Enable basic auth (prints username/password)")
+  .option("--path", "Force path-based routing (/s/slug/)")
   .option("--expires <duration>", "Session expiry (e.g. 30m, 1h, 24h)", "24h")
   .option("--control-plane <url>", "Control plane URL")
   .option("--edge <url>", "Edge tunnel URL")
@@ -105,8 +106,8 @@ program
         : "wss://t.wormkey.run/tunnel";
 
       const controlPlane =
-        process.env.WORMKEY_CONTROL_PLANE_URL ??
         opts.controlPlane ??
+        process.env.WORMKEY_CONTROL_PLANE_URL ??
         defaultControlPlane;
       console.error("Control plane:", controlPlane);
 
@@ -114,6 +115,7 @@ program
         port: portNum,
         auth: opts.auth,
         expires: opts.expires,
+        forcePath: opts.path,
       });
 
       if (opts.auth && session.username && session.password) {
@@ -124,8 +126,8 @@ program
       }
 
       const edgeUrl =
-        process.env.WORMKEY_EDGE_URL ??
         opts.edge ??
+        process.env.WORMKEY_EDGE_URL ??
         session.edgeUrl ??
         defaultEdge;
       console.error("Edge tunnel:", edgeUrl);

@@ -10,6 +10,9 @@
     return s ? new URL(s).origin : window.location.origin;
   })();
   function getSlug(){
+    var host = window.location.hostname;
+    var parts = host.split('.');
+    if (parts.length >= 3) return parts[0];
     var s = new URLSearchParams(window.location.search).get('slug');
     if (s) return s;
     var m = window.location.pathname.match(/^\/s\/([^\/]+)/);

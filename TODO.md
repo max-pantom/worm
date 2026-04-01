@@ -34,9 +34,9 @@ The hard conceptual problem is solved. Now we structure the next phases so Wormk
 
 **Gateway changes:**
 - [x] Extract slug from `Host` header
-- [ ] Remove cookie-based routing fallback (once wildcard live)
-- [ ] Only use cookie for owner identity
-- [ ] Remove query-based routing entirely once wildcard is live
+- [x] Remove cookie-based routing fallback (once wildcard live)
+- [x] Only use cookie for owner identity
+- [x] Remove query-based routing entirely once wildcard is live
 
 This moves Wormkey from dev tool to internet product.
 
