@@ -145,7 +145,7 @@ Tokens are returned once and stored as hashes by the control plane.
 Install the MCP package:
 
 ```bash
-npm install --global @wormkey/mcp@0.4.0
+npm install --global wormkey-mcp@0.4.0
 ```
 
 Start it over stdio:

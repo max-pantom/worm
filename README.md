@@ -99,11 +99,11 @@ export default function RootLayout({ children }) {
 ### Option C: Auto-mount (meta tag)
 
 ```bash
-npm install @wormkey/overlay
+npm install wormkey-overlay
 ```
 
 ```ts
-import "@wormkey/overlay/auto";
+import "wormkey-overlay/auto";
 ```
 
 ```html

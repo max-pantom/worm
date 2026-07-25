@@ -144,7 +144,7 @@ export default function WormkeyAgentNativePost() {
             />
 
             <p className="text-[var(--muted-fg)]">
-              The new <Code>@wormkey/mcp</Code> package exposes tools for
+              The new <Code>wormkey-mcp</Code> package exposes tools for
               starting, reading, listing, closing, inspecting, replaying, and
               waiting on tunnels. Coding agents can now use Wormkey without
               pretending to be a person at a terminal.

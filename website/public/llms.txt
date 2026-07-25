@@ -5,7 +5,7 @@
 Website: https://wormkey.run
 Repository: https://github.com/max-pantom/worm
 NPM CLI: https://www.npmjs.com/package/wormkey
-NPM MCP server: https://www.npmjs.com/package/@wormkey/mcp
+NPM MCP server: https://www.npmjs.com/package/wormkey-mcp
 Current release: 0.4.0
 
 ## Primary documentation
@@ -55,7 +55,7 @@ Manage application and tunnel together:
 
 Install:
 
-    npm install --global @wormkey/mcp@0.4.0
+    npm install --global wormkey-mcp@0.4.0
 
 Start:
 
