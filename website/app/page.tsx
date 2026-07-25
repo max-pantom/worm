@@ -225,10 +225,10 @@ export default function Layout({ children }) {
         <section className="mt-12 border-t border-[var(--border)] pt-8">
           <div className="max-w-md">
             <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--muted-fg)]">
-              Trust
+              Why Wormkey
             </p>
             <h2 className="mt-2 text-lg font-semibold text-[var(--fg)]">
-              A temporary path in, not permanent access.
+              Share what you are building without opening your whole machine.
             </h2>
             <p className="mt-2 text-sm leading-6 text-[var(--muted-fg)]">
               Wormkey only connects the public URL you create to the local port
