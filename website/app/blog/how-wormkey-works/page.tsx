@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BlogMascot } from "../BlogMascot";
+import { ArticleCodeBlock } from "../../components/ArticleCodeBlock";
 
 export const metadata = {
   title: "How Wormkey works — and why I built it",
@@ -210,9 +211,7 @@ export default function BlogPage() {
               If that sounds useful, give it a try:
             </p>
 
-            <pre className="rounded-lg border border-[var(--border)] bg-[var(--code-bg)] p-4 text-[13px] font-mono text-[var(--fg)] overflow-x-auto">
-              <code>npm i -g wormkey{`\n`}wormkey http 3000</code>
-            </pre>
+            <ArticleCodeBlock code={`npm i -g wormkey\nwormkey http 3000`} />
 
             <p className="text-[var(--muted-fg)] text-sm mt-10">
               — Built for developers who just want to share.

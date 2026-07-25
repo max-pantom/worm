@@ -1,0 +1,100 @@
+# Wormkey
+
+> Wormkey creates temporary public URLs for software running on localhost. It is designed for developer previews, browser testing, webhook debugging, human handoffs, and AI-agent workflows.
+
+Website: https://wormkey.run
+Repository: https://github.com/max-pantom/worm
+NPM CLI: https://www.npmjs.com/package/wormkey
+NPM MCP server: https://www.npmjs.com/package/@wormkey/mcp
+Current release: 0.4.0
+
+## Primary documentation
+
+- Agent guide: https://github.com/max-pantom/worm/blob/main/docs/AGENTS.md
+- CLI reference: https://github.com/max-pantom/worm/blob/main/docs/CLI.md
+- Tunnel protocol: https://github.com/max-pantom/worm/blob/main/docs/PROTOCOL.md
+- Releases: https://wormkey.run/release
+- Latest release: https://wormkey.run/release/0.4.0
+- Blog: https://wormkey.run/blog
+- Agent-native release story: https://wormkey.run/blog/wormkey-0-4-agent-native
+
+## Quick start
+
+Install:
+
+    npm install --global wormkey@0.4.0
+
+Expose localhost:
+
+    wormkey http 3000
+
+Machine-readable tunnel:
+
+    wormkey http 3000 --json --no-interactive
+
+Wait for readiness:
+
+    wormkey http 3000 --wait-for /health --timeout 60s --json --no-interactive
+
+Manage application and tunnel together:
+
+    wormkey run --port 3000 --wait-for /health -- npm run dev
+
+## Agent operations
+
+- List tunnels: `wormkey list --json`
+- Read status: `wormkey status <session-or-slug> --json`
+- Close remotely: `wormkey close <session-or-slug> --json`
+- Capture requests: `wormkey http 3000 --inspect`
+- Read request logs: `wormkey logs --json`
+- Inspect one request: `wormkey inspect <request-id>`
+- Replay locally: `wormkey replay <request-id>`
+- Create restricted token: `wormkey token create <session> --name <name> --scope tunnel:connect,tunnel:read --max-ttl 2h`
+
+## MCP
+
+Install:
+
+    npm install --global @wormkey/mcp@0.4.0
+
+Start:
+
+    wormkey-mcp
+
+Tools:
+
+- `wormkey_start_tunnel`
+- `wormkey_get_tunnel`
+- `wormkey_list_tunnels`
+- `wormkey_close_tunnel`
+- `wormkey_get_requests`
+- `wormkey_replay_request`
+- `wormkey_wait_until_ready`
+
+## JSON tunnel output
+
+The `--json --no-interactive` command writes one object to stdout:
+
+    {
+      "session_id": "sess_123",
+      "url": "https://quiet-lime-k7m4.wormkey.run",
+      "owner_url": "https://wormkey.run/.wormkey/owner?slug=quiet-lime-k7m4&token=...",
+      "expires_at": "2026-07-25T21:00:00.000Z",
+      "pid": 4821,
+      "status": "connected"
+    }
+
+Status messages are written to stderr.
+
+## Security
+
+- Wormkey uses an outbound tunnel from the CLI to the edge gateway.
+- Public, owner, and internal control-plane APIs have separate authorization boundaries.
+- Owner and tunnel credentials are stored as hashes by the control plane.
+- Treat owner URLs, owner tokens, session tokens, and restricted tokens as secrets.
+- Use short expiration times and close tunnels when work is complete.
+- Request inspection stores request metadata locally and should only be enabled when appropriate.
+
+## Product boundary
+
+Wormkey is not permanent hosting or a deployment platform. It is a temporary handoff layer between local execution and external reviewers, browsers, services, and AI agents.

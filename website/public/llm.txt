@@ -1,0 +1,15 @@
+# Wormkey machine-readable documentation
+
+The canonical LLM discovery file is available at:
+
+https://wormkey.run/llms.txt
+
+Wormkey agent guide:
+
+https://github.com/max-pantom/worm/blob/main/docs/AGENTS.md
+
+Wormkey creates temporary public URLs for localhost. For automation, use:
+
+    wormkey http 3000 --json --no-interactive
+
+Current release: 0.4.0

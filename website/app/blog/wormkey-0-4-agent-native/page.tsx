@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BlogMascot } from "../BlogMascot";
+import { ArticleCodeBlock } from "../../components/ArticleCodeBlock";
 
 export const metadata = {
   title: "Wormkey 0.4 — built for agents, safer for everyone",
@@ -90,25 +91,23 @@ export default function WormkeyAgentNativePost() {
               to stdout while status messages stay on stderr.
             </p>
 
-            <pre className="overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--code-bg)] p-4 font-mono text-[13px] text-[var(--fg)]">
-              <code>{`wormkey http 3000 --json --no-interactive\n\n{\n  "session_id": "sess_123",\n  "url": "https://quiet-lime-k7m4.wormkey.run",\n  "expires_at": "2026-07-25T21:00:00Z",\n  "status": "connected"\n}`}</code>
-            </pre>
+            <ArticleCodeBlock code="wormkey http 3000 --json --no-interactive" />
+            <ArticleCodeBlock
+              language="json"
+              code={`{\n  "session_id": "sess_123",\n  "url": "https://quiet-lime-k7m4.wormkey.run",\n  "expires_at": "2026-07-25T21:00:00Z",\n  "status": "connected"\n}`}
+            />
 
             <p className="text-[var(--muted-fg)]">
               Wormkey can also wait for your application before exposing it:
             </p>
 
-            <pre className="overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--code-bg)] p-4 font-mono text-[13px] text-[var(--fg)]">
-              <code>{`wormkey http 3000 --wait-for /health --timeout 60s`}</code>
-            </pre>
+            <ArticleCodeBlock code="wormkey http 3000 --wait-for /health --timeout 60s" />
 
             <p className="text-[var(--muted-fg)]">
               Or manage the application and tunnel as one process:
             </p>
 
-            <pre className="overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--code-bg)] p-4 font-mono text-[13px] text-[var(--fg)]">
-              <code>{`wormkey run --port 3000 -- npm run dev`}</code>
-            </pre>
+            <ArticleCodeBlock code="wormkey run --port 3000 -- npm run dev" />
 
             <h2 className="mt-10 text-lg font-bold text-[var(--fg)]">
               A tunnel you can inspect
@@ -120,9 +119,9 @@ export default function WormkeyAgentNativePost() {
               bytes, response bytes, and request ID.
             </p>
 
-            <pre className="overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--code-bg)] p-4 font-mono text-[13px] text-[var(--fg)]">
-              <code>{`wormkey logs --json\nwormkey inspect req_123\nwormkey replay req_123`}</code>
-            </pre>
+            <ArticleCodeBlock
+              code={`wormkey logs --json\nwormkey inspect req_123\nwormkey replay req_123`}
+            />
 
             <p className="text-[var(--muted-fg)]">
               That makes Wormkey useful for webhook work, API debugging, and
@@ -140,9 +139,9 @@ export default function WormkeyAgentNativePost() {
               original terminal is gone.
             </p>
 
-            <pre className="overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--code-bg)] p-4 font-mono text-[13px] text-[var(--fg)]">
-              <code>{`wormkey list\nwormkey status quiet-lime-k7m4\nwormkey close quiet-lime-k7m4`}</code>
-            </pre>
+            <ArticleCodeBlock
+              code={`wormkey list\nwormkey status quiet-lime-k7m4\nwormkey close quiet-lime-k7m4`}
+            />
 
             <p className="text-[var(--muted-fg)]">
               The new <Code>@wormkey/mcp</Code> package exposes tools for

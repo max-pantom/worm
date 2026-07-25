@@ -252,6 +252,14 @@ export default function Layout({ children }) {
             >
               releases
             </Link>
+            <a
+              href="https://github.com/max-pantom/worm/blob/main/docs/AGENTS.md"
+              target="_blank"
+              rel="noreferrer"
+              className="border-b border-transparent border-dotted transition-colors hover:border-current hover:text-[var(--accent)] touch-manipulation"
+            >
+              agents
+            </a>
             {mounted && (
               <ThemeToggle
                 isDark={theme !== "light"}

@@ -181,6 +181,7 @@ For local development, see `.env.example`. Key variables:
 ## Documentation
 
 - [CLI Reference](docs/CLI.md) — Full command reference
+- [Wormkey for AI Agents](docs/AGENTS.md) — JSON mode, readiness, lifecycle management, inspection, replay, tokens, and MCP
 - [Protocol](docs/PROTOCOL.md) — Tunnel protocol specification
 - [Deploy](docs/DEPLOY.md) — Production deployment (Render, Vercel)
 
