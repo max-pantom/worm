@@ -7,6 +7,7 @@ export interface CreateSessionResponse {
   slug: string;
   publicUrl: string;
   ownerUrl: string;
+  ownerToken: string;
   overlayScriptUrl: string;
   edgeUrl: string;
   sessionToken: string;

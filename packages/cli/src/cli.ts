@@ -23,7 +23,7 @@ function getSessionStatePath(): string {
   const dir = process.env.XDG_STATE_HOME
     ? path.join(process.env.XDG_STATE_HOME, "wormkey")
     : path.join(os.homedir(), ".wormkey");
-  return path.join(dir, "p.json");
+  return path.join(dir, "sessions.json");
 }
 
 function writeSessionState(
@@ -32,7 +32,7 @@ function writeSessionState(
 ): void {
   const filePath = getSessionStatePath();
   const dir = path.dirname(filePath);
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   fs.writeFileSync(
     filePath,
     JSON.stringify({
@@ -41,7 +41,7 @@ function writeSessionState(
       publicUrl: session.publicUrl,
       startedAt: new Date().toISOString(),
     }),
-    "utf8"
+    { encoding: "utf8", mode: 0o600 }
   );
 }
 
@@ -133,6 +133,7 @@ program
         localPort: portNum,
         edgeUrl,
         sessionToken: session.sessionToken,
+        ownerToken: session.ownerToken,
         publicUrl: session.publicUrl,
         onStatus: (msg) => console.error(msg),
       });

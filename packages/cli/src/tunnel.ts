@@ -19,6 +19,7 @@ export interface TunnelConfig {
   localPort: number;
   edgeUrl: string;
   sessionToken: string;
+  ownerToken: string;
   publicUrl: string;
   onStatus?: (msg: string) => void;
 }
@@ -27,6 +28,27 @@ const PING_INTERVAL_MS = 25000;
 const PONG_TIMEOUT_MS = 30000;
 const HEARTBEAT_FAILURES_BEFORE_CLOSE = 2;
 const BACKOFF_MS = [1000, 2000, 5000, 10000];
+const MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024;
+const MAX_PENDING_STREAMS = 128;
+const REQUEST_TIMEOUT_MS = 60_000;
+const STRIPPED_REQUEST_HEADERS = new Set([
+  "connection",
+  "upgrade",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "host",
+  "content-length",
+  "x-wormkey-request-id",
+  "x-wormkey-viewer-id",
+  "x-wormkey-forwarded-for",
+  "x-forwarded-for",
+  "x-forwarded-host",
+  "x-forwarded-proto",
+]);
 
 export class TunnelClient {
   private ws: WebSocket | null = null;
@@ -34,7 +56,8 @@ export class TunnelClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setTimeout> | null = null;
   private pongTimeout: ReturnType<typeof setTimeout> | null = null;
-  private pendingStreams = new Map<number, { openPayload: Buffer; bodyChunks: Buffer[] }>();
+  private pendingStreams = new Map<number, { openPayload: Buffer; bodyChunks: Buffer[]; bodyBytes: number }>();
+  private activeRequests = new Map<number, AbortController>();
   private shouldRun = true;
   private reconnectAttempt = 0;
   private heartbeatFailures = 0;
@@ -69,6 +92,7 @@ export class TunnelClient {
     this.ws = new WebSocket(url, {
       headers: {
         Authorization: `Bearer ${this.config.sessionToken}`,
+        "X-Wormkey-Owner-Token": this.config.ownerToken,
       },
     });
 
@@ -111,13 +135,29 @@ export class TunnelClient {
     }
 
     if (type === FrameType.OPEN_STREAM && payload) {
-      this.pendingStreams.set(streamId, { openPayload: payload, bodyChunks: [] });
+      if (this.pendingStreams.size >= MAX_PENDING_STREAMS) {
+        this.send(FrameType.RESPONSE_HEADERS, streamId, serializeResponseHeaders(503, { "content-type": "text/plain" }));
+        this.send(FrameType.STREAM_DATA, streamId, Buffer.from("Too many pending requests", "utf-8"));
+        this.send(FrameType.STREAM_END, streamId);
+        return;
+      }
+      this.pendingStreams.set(streamId, { openPayload: payload, bodyChunks: [], bodyBytes: 0 });
       return;
     }
 
     if (type === FrameType.STREAM_DATA && payload) {
       const pending = this.pendingStreams.get(streamId);
-      if (pending) pending.bodyChunks.push(payload);
+      if (pending) {
+        pending.bodyBytes += payload.length;
+        if (pending.bodyBytes > MAX_REQUEST_BODY_BYTES) {
+          this.pendingStreams.delete(streamId);
+          this.send(FrameType.RESPONSE_HEADERS, streamId, serializeResponseHeaders(413, { "content-type": "text/plain" }));
+          this.send(FrameType.STREAM_DATA, streamId, Buffer.from("Request body too large", "utf-8"));
+          this.send(FrameType.STREAM_END, streamId);
+          return;
+        }
+        pending.bodyChunks.push(payload);
+      }
       return;
     }
 
@@ -132,6 +172,7 @@ export class TunnelClient {
 
     if (type === FrameType.STREAM_CANCEL) {
       this.pendingStreams.delete(streamId);
+      this.activeRequests.get(streamId)?.abort();
       return;
     }
   }
@@ -139,14 +180,28 @@ export class TunnelClient {
   private async handleOpenStream(streamId: number, openStreamPayload: Buffer, bodyChunks: Buffer[]) {
     const { method, path, headers } = parseOpenStream(openStreamPayload);
     const body = bodyChunks.length > 0 ? Buffer.concat(bodyChunks) : undefined;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    this.activeRequests.set(streamId, controller);
+
+    const forwardedHeaders: Record<string, string> = {};
+    for (const [name, value] of Object.entries(headers)) {
+      if (!STRIPPED_REQUEST_HEADERS.has(name.toLowerCase())) forwardedHeaders[name] = value;
+    }
+    forwardedHeaders["x-wormkey-request-id"] = `req_${streamId}`;
+    forwardedHeaders["x-forwarded-proto"] = "https";
+    try {
+      forwardedHeaders["x-forwarded-host"] = new URL(this.config.publicUrl).host;
+    } catch {}
 
     const localUrl = `http://127.0.0.1:${this.config.localPort}${path}`;
 
     try {
       const { statusCode, headers: resHeaders, body: resBody } = await request(localUrl, {
         method: method as "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS",
-        headers: headers as Record<string, string>,
+        headers: forwardedHeaders,
         body,
+        signal: controller.signal,
       });
 
       const resHeadersObj: Record<string, string> = {};
@@ -163,9 +218,14 @@ export class TunnelClient {
         }
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      this.send(FrameType.RESPONSE_HEADERS, streamId, serializeResponseHeaders(502, { "content-type": "text/plain" }));
-      this.send(FrameType.STREAM_DATA, streamId, Buffer.from(`Bad Gateway: ${msg}`, "utf-8"));
+      if (!controller.signal.aborted) {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.send(FrameType.RESPONSE_HEADERS, streamId, serializeResponseHeaders(502, { "content-type": "text/plain" }));
+        this.send(FrameType.STREAM_DATA, streamId, Buffer.from(`Bad Gateway: ${msg}`, "utf-8"));
+      }
+    } finally {
+      clearTimeout(timeout);
+      this.activeRequests.delete(streamId);
     }
     this.send(FrameType.STREAM_END, streamId);
   }
@@ -207,6 +267,8 @@ export class TunnelClient {
   private handleClose() {
     this.ws = null;
     this.stopHeartbeat();
+    for (const controller of this.activeRequests.values()) controller.abort();
+    this.activeRequests.clear();
 
     if (!this.shouldRun) return;
     if (this.reconnectTimer) return;
