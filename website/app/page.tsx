@@ -222,6 +222,62 @@ export default function Layout({ children }) {
           />
         </section>
 
+        <section className="mt-12 border-t border-[var(--border)] pt-8">
+          <div className="max-w-md">
+            <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--muted-fg)]">
+              Trust
+            </p>
+            <h2 className="mt-2 text-lg font-semibold text-[var(--fg)]">
+              A temporary path in, not permanent access.
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted-fg)]">
+              Wormkey only connects the public URL you create to the local port
+              you choose. The tunnel disappears when it expires or you close it.
+            </p>
+          </div>
+
+          <div className="mt-6 grid gap-px overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--border)] sm:grid-cols-2">
+            {[
+              {
+                label: "TLS at the edge",
+                copy: "Visitors connect over HTTPS. Wormkey terminates TLS at the edge before forwarding traffic through your authenticated tunnel.",
+              },
+              {
+                label: "Outbound-only connection",
+                copy: "The CLI opens the connection from your machine. You do not need to expose a router port or accept unsolicited inbound connections.",
+              },
+              {
+                label: "Expiry and access control",
+                copy: "Sessions expire automatically. Owners can close tunnels remotely, restrict access, pause traffic, and use short-lived scoped tokens.",
+              },
+              {
+                label: "Limited local reach",
+                copy: "Wormkey can reach the hostname and port you explicitly expose. It does not gain general access to your files, shell, other ports, or local network.",
+              },
+            ].map((item) => (
+              <div key={item.label} className="bg-[var(--bg)] p-4">
+                <h3 className="text-sm font-semibold text-[var(--fg)]">
+                  {item.label}
+                </h3>
+                <p className="mt-2 text-xs leading-5 text-[var(--muted-fg)]">
+                  {item.copy}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--code-bg)] px-4 py-3">
+            <p className="text-xs leading-5 text-[var(--muted-fg)]">
+              <strong className="text-[var(--fg)]">What Wormkey can see:</strong>{" "}
+              HTTP requests and responses that pass through the tunnel, plus
+              session metadata needed to route and control it.{" "}
+              <strong className="text-[var(--fg)]">What it cannot see:</strong>{" "}
+              unrelated files, terminal activity, source code, or services you
+              did not expose.
+            </p>
+          </div>
+        </section>
+
         {demoBarVisible && (
           <DemoControlBar onClose={() => setDemoBarVisible(false)} />
         )}
