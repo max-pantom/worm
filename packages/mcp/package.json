@@ -1,6 +1,6 @@
 {
   "name": "@wormkey/mcp",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "MCP server for Wormkey tunnels",
   "type": "module",
   "bin": {

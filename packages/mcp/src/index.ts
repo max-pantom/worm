@@ -64,7 +64,7 @@ input.on("line", async (line) => {
   try {
     request = JSON.parse(line);
     if (request.method === "initialize") {
-      send({ jsonrpc: "2.0", id: request.id, result: { protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "wormkey", version: "0.1.0" } } });
+      send({ jsonrpc: "2.0", id: request.id, result: { protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "wormkey", version: "0.4.0" } } });
       return;
     }
     if (request.method === "notifications/initialized") return;

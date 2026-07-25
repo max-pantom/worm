@@ -1,6 +1,6 @@
 {
   "name": "wormkey",
-  "version": "0.1.5",
+  "version": "0.4.0",
   "description": "Open a wormhole to your localhost",
   "bin": {
     "wormkey": "dist/cli.js"
