@@ -4,10 +4,10 @@
 package main
 
 import (
-	_ "embed"
 	"bufio"
 	"bytes"
 	"crypto/rand"
+	_ "embed"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -148,7 +148,6 @@ type viewerState struct {
 }
 
 type persistedSession struct {
-	OwnerToken      string        `json:"ownerToken"`
 	OwnerUrl        string        `json:"ownerUrl"`
 	Policy          tunnelPolicy  `json:"policy"`
 	KickedViewerIds []string      `json:"kickedViewerIds"`
@@ -160,8 +159,15 @@ func fetchSession(controlPlaneURL, slug string) (persistedSession, int, error) {
 	if controlPlaneURL == "" {
 		return persistedSession{}, 0, fmt.Errorf("control plane url is empty")
 	}
-	url := strings.TrimRight(controlPlaneURL, "/") + "/sessions/by-slug/" + slug
-	resp, err := http.Get(url)
+	url := strings.TrimRight(controlPlaneURL, "/") + "/internal/sessions/by-slug/" + slug
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return persistedSession{}, 0, err
+	}
+	if key := os.Getenv("WORMKEY_INTERNAL_API_KEY"); key != "" {
+		req.Header.Set("Authorization", "Bearer "+key)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return persistedSession{}, 0, err
 	}
@@ -174,6 +180,30 @@ func fetchSession(controlPlaneURL, slug string) (persistedSession, int, error) {
 		return persistedSession{}, resp.StatusCode, err
 	}
 	return sess, resp.StatusCode, nil
+}
+
+func validateSession(controlPlaneURL, sessionToken string) (int, error) {
+	if controlPlaneURL == "" {
+		return 0, fmt.Errorf("control plane url is empty")
+	}
+	body, err := json.Marshal(map[string]string{"sessionToken": sessionToken})
+	if err != nil {
+		return 0, err
+	}
+	req, err := http.NewRequest(http.MethodPost, strings.TrimRight(controlPlaneURL, "/")+"/internal/sessions/validate", bytes.NewReader(body))
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if key := os.Getenv("WORMKEY_INTERNAL_API_KEY"); key != "" {
+		req.Header.Set("Authorization", "Bearer "+key)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode, nil
 }
 
 func randomSecret(n int) string {
@@ -407,9 +437,6 @@ func hydrateFromControlPlane(controlPlaneURL, slug string, tc *tunnelConn) {
 	if status != http.StatusOK {
 		return
 	}
-	if tc.ownerToken == "" && sess.OwnerToken != "" {
-		tc.ownerToken = sess.OwnerToken
-	}
 	tc.policyMu.Lock()
 	if sess.Policy.MaxConcurrentViewers > 0 || sess.Policy.Public || len(sess.Policy.BlockPaths) > 0 || sess.Policy.Password != "" {
 		tc.policy = sess.Policy
@@ -436,6 +463,9 @@ func postJSON(url string, body any) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
+	if key := os.Getenv("WORMKEY_INTERNAL_API_KEY"); key != "" {
+		req.Header.Set("Authorization", "Bearer "+key)
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return
@@ -447,7 +477,7 @@ func syncPolicy(controlPlaneURL, slug string, policy tunnelPolicy) {
 	if controlPlaneURL == "" {
 		return
 	}
-	url := strings.TrimRight(controlPlaneURL, "/") + "/sessions/by-slug/" + slug + "/policy"
+	url := strings.TrimRight(controlPlaneURL, "/") + "/internal/sessions/by-slug/" + slug + "/policy"
 	postJSON(url, map[string]any{
 		"public":               policy.Public,
 		"maxConcurrentViewers": policy.MaxConcurrentViewers,
@@ -460,7 +490,7 @@ func syncViewers(controlPlaneURL, slug string, viewers []viewerState) {
 	if controlPlaneURL == "" {
 		return
 	}
-	url := strings.TrimRight(controlPlaneURL, "/") + "/sessions/by-slug/" + slug + "/viewers"
+	url := strings.TrimRight(controlPlaneURL, "/") + "/internal/sessions/by-slug/" + slug + "/viewers"
 	postJSON(url, map[string]any{"viewers": viewers})
 }
 
@@ -468,7 +498,7 @@ func syncKick(controlPlaneURL, slug, viewerID string) {
 	if controlPlaneURL == "" {
 		return
 	}
-	url := strings.TrimRight(controlPlaneURL, "/") + "/sessions/by-slug/" + slug + "/kick"
+	url := strings.TrimRight(controlPlaneURL, "/") + "/internal/sessions/by-slug/" + slug + "/kick"
 	postJSON(url, map[string]any{"viewerId": viewerID})
 }
 
@@ -476,7 +506,7 @@ func syncClose(controlPlaneURL, slug string) {
 	if controlPlaneURL == "" {
 		return
 	}
-	url := strings.TrimRight(controlPlaneURL, "/") + "/sessions/by-slug/" + slug + "/close"
+	url := strings.TrimRight(controlPlaneURL, "/") + "/internal/sessions/by-slug/" + slug + "/close"
 	postJSON(url, map[string]any{})
 }
 
@@ -564,9 +594,6 @@ func main() {
 		base := strings.TrimSuffix(getEnv("WORMKEY_PUBLIC_BASE_URL", getEnv("WORMKEY_PUBLIC_BASE", "http://localhost:3002")), "/")
 		publicUrl := base + "/s/" + slug
 		ownerUrl := sess.OwnerUrl
-		if ownerUrl == "" && sess.OwnerToken != "" {
-			ownerUrl = base + "/.wormkey/owner?slug=" + slug + "&token=" + sess.OwnerToken
-		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"publicUrl": publicUrl, "ownerUrl": ownerUrl})
 	})
@@ -756,12 +783,8 @@ func handleTunnel(tunnels *sync.Map, closedSlugs *sync.Map, controlPlaneURL stri
 		}
 		rawToken := strings.TrimSpace(token[7:])
 		slug := rawToken
-		ownerToken := ""
 		if dot := strings.IndexByte(rawToken, '.'); dot > 0 {
 			slug = rawToken[:dot]
-			if dot+1 < len(rawToken) {
-				ownerToken = rawToken[dot+1:]
-			}
 		}
 		if len(slug) > 64 {
 			slug = slug[:64]
@@ -770,17 +793,12 @@ func handleTunnel(tunnels *sync.Map, closedSlugs *sync.Map, controlPlaneURL stri
 			http.Error(w, "Session closed", http.StatusGone)
 			return
 		}
-		if sess, status, err := fetchSession(controlPlaneURL, slug); err == nil && status == http.StatusOK {
-			if sess.Closed {
-				closedSlugs.Store(slug, struct{}{})
-				http.Error(w, "Session closed", http.StatusGone)
-				return
-			}
-			if sess.OwnerToken != "" && ownerToken != "" && sess.OwnerToken != ownerToken {
-				http.Error(w, "Invalid session token", http.StatusUnauthorized)
-				return
-			}
+		status, err := validateSession(controlPlaneURL, rawToken)
+		if err != nil || status != http.StatusOK {
+			http.Error(w, "Invalid session token", http.StatusUnauthorized)
+			return
 		}
+		ownerToken := strings.TrimSpace(r.Header.Get("X-Wormkey-Owner-Token"))
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Printf("Upgrade error: %v", err)

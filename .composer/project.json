@@ -1,0 +1,15 @@
+{
+  "id": "proj_worm",
+  "name": "worm",
+  "slug": "worm",
+  "path": "/Users/Macbook/desktop/code/worm",
+  "workspaceRoot": "/Users/Macbook/desktop/code",
+  "createdAt": "2026-03-28T23:12:03.971Z",
+  "updatedAt": "2026-03-30T10:23:32.295Z",
+  "lastOpenedAt": "2026-03-30T10:23:32.295Z",
+  "chatTitle": "worm",
+  "status": "active",
+  "linkedRepo": "/Users/Macbook/desktop/code/worm",
+  "historyFile": ".composer/messages.jsonl",
+  "threads": []
+}
