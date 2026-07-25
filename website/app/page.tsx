@@ -246,6 +246,12 @@ export default function Layout({ children }) {
             >
               blog
             </Link>
+            <Link
+              href="/release"
+              className="border-b border-transparent border-dotted transition-colors hover:border-current hover:text-[var(--accent)] touch-manipulation"
+            >
+              releases
+            </Link>
             {mounted && (
               <ThemeToggle
                 isDark={theme !== "light"}

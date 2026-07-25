@@ -1,6 +1,6 @@
 {
   "name": "wormkey",
-  "version": "0.1.5",
+  "version": "0.4.0",
   "description": "Open a wormhole to your localhost",
   "bin": {
     "wormkey": "dist/cli.js"
@@ -34,8 +34,8 @@
     "commander": "^12.0.0",
     "dotenv": "^16.4.0",
     "qrcode-terminal": "^0.12.0",
-    "undici": "^6.2.0",
-    "ws": "^8.18.0"
+    "undici": "^6.28.0",
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

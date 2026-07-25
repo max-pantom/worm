@@ -94,3 +94,22 @@ test("invalid tunnel credentials are rejected", async () => {
   });
   assert.equal(response.statusCode, 401);
 });
+
+test("owner can create a scoped tunnel token", async () => {
+  const created = await app.inject({
+    method: "POST",
+    url: `/owner/sessions/${session.sessionId}/tokens`,
+    headers: { authorization: `Bearer ${session.ownerToken}` },
+    payload: { name: "codex-preview", scopes: ["tunnel:connect", "tunnel:read"], maxTtl: "2h" },
+  });
+  assert.equal(created.statusCode, 201);
+  const token = created.json().token as string;
+
+  const validated = await app.inject({
+    method: "POST",
+    url: "/internal/sessions/validate",
+    headers: { authorization: "Bearer test-internal-key" },
+    payload: { sessionToken: token },
+  });
+  assert.equal(validated.statusCode, 200);
+});

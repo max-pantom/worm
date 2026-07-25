@@ -4,6 +4,7 @@
  */
 
 import WebSocket from "ws";
+import { randomUUID } from "node:crypto";
 import { request } from "undici";
 import {
   FrameType,
@@ -21,7 +22,21 @@ export interface TunnelConfig {
   sessionToken: string;
   ownerToken: string;
   publicUrl: string;
+  sessionId: string;
   onStatus?: (msg: string) => void;
+  onRequest?: (entry: {
+    requestId: string;
+    sessionId: string;
+    method: string;
+    path: string;
+    status: number;
+    durationMs: number;
+    requestBytes: number;
+    responseBytes: number;
+    timestamp: string;
+    requestHeaders: Record<string, string>;
+    requestBodyBase64?: string;
+  }) => void;
 }
 
 const PING_INTERVAL_MS = 25000;
@@ -180,6 +195,10 @@ export class TunnelClient {
   private async handleOpenStream(streamId: number, openStreamPayload: Buffer, bodyChunks: Buffer[]) {
     const { method, path, headers } = parseOpenStream(openStreamPayload);
     const body = bodyChunks.length > 0 ? Buffer.concat(bodyChunks) : undefined;
+    const requestId = `req_${randomUUID()}`;
+    const startedAt = Date.now();
+    let responseStatus = 502;
+    let responseBytes = 0;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     this.activeRequests.set(streamId, controller);
@@ -188,7 +207,7 @@ export class TunnelClient {
     for (const [name, value] of Object.entries(headers)) {
       if (!STRIPPED_REQUEST_HEADERS.has(name.toLowerCase())) forwardedHeaders[name] = value;
     }
-    forwardedHeaders["x-wormkey-request-id"] = `req_${streamId}`;
+    forwardedHeaders["x-wormkey-request-id"] = requestId;
     forwardedHeaders["x-forwarded-proto"] = "https";
     try {
       forwardedHeaders["x-forwarded-host"] = new URL(this.config.publicUrl).host;
@@ -203,6 +222,7 @@ export class TunnelClient {
         body,
         signal: controller.signal,
       });
+      responseStatus = statusCode;
 
       const resHeadersObj: Record<string, string> = {};
       for (const [k, v] of Object.entries(resHeaders)) {
@@ -214,6 +234,7 @@ export class TunnelClient {
       // Stream chunks as they arrive (don't buffer) so Next.js RSC and streaming responses render progressively
       for await (const chunk of resBody) {
         if (chunk && chunk.length > 0) {
+          responseBytes += chunk.length;
           this.send(FrameType.STREAM_DATA, streamId, Buffer.from(chunk));
         }
       }
@@ -226,6 +247,19 @@ export class TunnelClient {
     } finally {
       clearTimeout(timeout);
       this.activeRequests.delete(streamId);
+      this.config.onRequest?.({
+        requestId,
+        sessionId: this.config.sessionId,
+        method,
+        path,
+        status: responseStatus,
+        durationMs: Date.now() - startedAt,
+        requestBytes: body?.length ?? 0,
+        responseBytes,
+        timestamp: new Date(startedAt).toISOString(),
+        requestHeaders: forwardedHeaders,
+        ...(body && { requestBodyBase64: body.toString("base64") }),
+      });
     }
     this.send(FrameType.STREAM_END, streamId);
   }

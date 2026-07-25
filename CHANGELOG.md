@@ -6,7 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.2.0] - TBD
+## [0.4.0] - 2026-07-25
+
+### Added
+
+- Agent-native JSON and noninteractive CLI modes
+- Readiness waiting and process lifecycle management
+- Multi-session state, remote close, request inspection, logs, and replay
+- Scoped session tokens and the `@wormkey/mcp` package
+- GitHub Actions CI, dependency review, npm audit, Go vet, and CodeQL
+
+### Security
+
+- Public, owner, and internal control-plane authorization boundaries
+- Cryptographically secure session identifiers, slugs, and credentials
+- Hashed owner and tunnel tokens
+- Authenticated gateway session validation
+- Request cancellation, body limits, timeouts, and unsafe-header filtering
+
+### Changed
+
+- Gateway control-plane and protocol code moved into internal packages
+- Local state now uses `~/.wormkey/sessions.json` with restrictive permissions
+
+---
+
+## [0.2.0] - Previous
 
 ### Added
 

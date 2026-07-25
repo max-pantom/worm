@@ -4,6 +4,7 @@
   "workspaces": [
     "packages/cli",
     "packages/control-plane",
+    "packages/mcp",
     "packages/overlay"
   ]
 }
