@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm --prefix packages/control-plane run build
+      - run: npm --prefix packages/control-plane run test
+      - run: npm --prefix packages/cli run build
+      - run: npm --prefix packages/overlay run build
+      - run: npm audit --omit=dev --audit-level=high
+
+  go:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/gateway/go.mod
+          cache-dependency-path: packages/gateway/go.sum
+      - run: go test ./...
+      - run: go vet ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4

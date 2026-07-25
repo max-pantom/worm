@@ -77,6 +77,12 @@ interface Session {
   closed: boolean;
   username?: string;
   password?: string;
+  agentTokens: Array<{
+    name: string;
+    tokenHash: string;
+    scopes: string[];
+    expiresAt: string;
+  }>;
 }
 
 function publicSession(session: Session) {
@@ -170,6 +176,7 @@ export function buildApp() {
         activeViewers: [],
         kickedViewerIds: [],
         closed: false,
+        agentTokens: [],
       };
       if (authMode === "basic") {
         session.username = "worm";
@@ -263,8 +270,39 @@ export function buildApp() {
     if (!sessionToken) return reply.status(400).send({ error: "sessionToken is required" });
     const slug = sessionToken.split(".", 1)[0];
     const session = findBySlug(slug);
-    if (!session || !safeEqual(hashToken(sessionToken), session.sessionTokenHash)) return reply.status(401).send({ error: "Invalid session token" });
+    const tokenHash = hashToken(sessionToken);
+    const validAgentToken = session?.agentTokens.some((token) =>
+      Date.parse(token.expiresAt) > Date.now()
+      && token.scopes.includes("tunnel:connect")
+      && safeEqual(tokenHash, token.tokenHash)
+    );
+    if (!session || (!safeEqual(tokenHash, session.sessionTokenHash) && !validAgentToken)) return reply.status(401).send({ error: "Invalid session token" });
     return reply.send({ ok: true, slug, closed: session.closed, expiresAt: session.expiresAt });
+  });
+
+  fastify.post<{
+    Params: { id: string };
+    Body: { name?: string; scopes?: string[]; maxTtl?: string };
+  }>("/owner/sessions/:id/tokens", async (request, reply) => {
+    const session = sessions.get(request.params.id);
+    if (!session) return reply.status(404).send({ error: "Session not found" });
+    if (!requireOwner(request, session)) return reply.status(401).send({ error: "Unauthorized" });
+    const scopes = request.body.scopes?.filter((scope) => ["tunnel:connect", "tunnel:read", "tunnel:close"].includes(scope)) ?? ["tunnel:read"];
+    const ttl = request.body.maxTtl ?? "2h";
+    const amount = Number.parseInt(ttl, 10);
+    if (!Number.isFinite(amount) || amount <= 0 || (!ttl.endsWith("m") && !ttl.endsWith("h"))) {
+      return reply.status(400).send({ error: "maxTtl must use minutes or hours" });
+    }
+    const ttlMs = ttl.endsWith("m") ? amount * 60_000 : amount * 3_600_000;
+    const rawToken = `${session.slug}.${randomToken()}`;
+    const agentToken = {
+      name: request.body.name ?? "agent",
+      tokenHash: hashToken(rawToken),
+      scopes,
+      expiresAt: new Date(Date.now() + Math.min(ttlMs, 24 * 3_600_000)).toISOString(),
+    };
+    session.agentTokens.push(agentToken);
+    return reply.status(201).send({ token: rawToken, name: agentToken.name, scopes, expiresAt: agentToken.expiresAt });
   });
 
   fastify.get("/internal/sessions/by-slug/:slug", async (request, reply) => {

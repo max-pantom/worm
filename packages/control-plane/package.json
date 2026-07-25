@@ -10,8 +10,8 @@
     "test": "tsx --test test/**/*.test.ts"
   },
   "dependencies": {
-    "fastify": "^4.25.0",
-    "@fastify/cors": "^8.5.0"
+    "fastify": "^5.10.0",
+    "@fastify/cors": "^11.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

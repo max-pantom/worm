@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	_ "embed"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -24,25 +23,24 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/wormkey/gateway/internal/controlplane"
+	"github.com/wormkey/gateway/internal/protocol"
 )
 
 //go:embed overlay.js
 var overlayJS []byte
 
 const (
-	FrameOpenStream   = 0x01
-	FrameStreamData   = 0x02
-	FrameStreamEnd    = 0x03
-	FrameStreamCancel = 0x04
-	FrameResponseHdrs = 0x05
-	FrameWSUpgrade    = 0x06
-	FrameWSData       = 0x07
-	FrameWSClose      = 0x08
-	FramePing         = 0x09
-	FramePong         = 0x0a
-	FramePause        = 0x0b
-	FrameResume       = 0x0c
-	ControlStreamID   = 0
+	FrameOpenStream   = protocol.FrameOpenStream
+	FrameStreamData   = protocol.FrameStreamData
+	FrameStreamEnd    = protocol.FrameStreamEnd
+	FrameStreamCancel = protocol.FrameStreamCancel
+	FrameResponseHdrs = protocol.FrameResponseHdrs
+	FramePing         = protocol.FramePing
+	FramePong         = protocol.FramePong
+	FramePause        = protocol.FramePause
+	FrameResume       = protocol.FrameResume
+	ControlStreamID   = protocol.ControlStreamID
 )
 
 var upgrader = websocket.Upgrader{
@@ -65,12 +63,7 @@ type tunnelConn struct {
 	kickedViewers map[string]struct{}
 }
 
-type tunnelPolicy struct {
-	Public               bool     `json:"public"`
-	MaxConcurrentViewers int      `json:"maxConcurrentViewers"`
-	BlockPaths           []string `json:"blockPaths"`
-	Password             string   `json:"password"`
-}
+type tunnelPolicy = controlplane.Policy
 
 type streamCtx struct {
 	w         http.ResponseWriter
@@ -140,70 +133,20 @@ type policyPatch struct {
 	BlockPaths           []string `json:"blockPaths"`
 }
 
-type viewerState struct {
-	ID         string `json:"id"`
-	LastSeenAt string `json:"lastSeenAt"`
-	Requests   int    `json:"requests"`
-	IP         string `json:"ip,omitempty"`
-}
+type viewerState = controlplane.Viewer
 
-type persistedSession struct {
-	OwnerUrl        string        `json:"ownerUrl"`
-	Policy          tunnelPolicy  `json:"policy"`
-	KickedViewerIds []string      `json:"kickedViewerIds"`
-	ActiveViewers   []viewerState `json:"activeViewers"`
-	Closed          bool          `json:"closed"`
+type persistedSession = controlplane.Session
+
+func controlPlaneClient(controlPlaneURL string) *controlplane.Client {
+	return controlplane.New(controlPlaneURL, os.Getenv("WORMKEY_INTERNAL_API_KEY"))
 }
 
 func fetchSession(controlPlaneURL, slug string) (persistedSession, int, error) {
-	if controlPlaneURL == "" {
-		return persistedSession{}, 0, fmt.Errorf("control plane url is empty")
-	}
-	url := strings.TrimRight(controlPlaneURL, "/") + "/internal/sessions/by-slug/" + slug
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		return persistedSession{}, 0, err
-	}
-	if key := os.Getenv("WORMKEY_INTERNAL_API_KEY"); key != "" {
-		req.Header.Set("Authorization", "Bearer "+key)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return persistedSession{}, 0, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return persistedSession{}, resp.StatusCode, nil
-	}
-	var sess persistedSession
-	if err := json.NewDecoder(resp.Body).Decode(&sess); err != nil {
-		return persistedSession{}, resp.StatusCode, err
-	}
-	return sess, resp.StatusCode, nil
+	return controlPlaneClient(controlPlaneURL).FetchSession(slug)
 }
 
 func validateSession(controlPlaneURL, sessionToken string) (int, error) {
-	if controlPlaneURL == "" {
-		return 0, fmt.Errorf("control plane url is empty")
-	}
-	body, err := json.Marshal(map[string]string{"sessionToken": sessionToken})
-	if err != nil {
-		return 0, err
-	}
-	req, err := http.NewRequest(http.MethodPost, strings.TrimRight(controlPlaneURL, "/")+"/internal/sessions/validate", bytes.NewReader(body))
-	if err != nil {
-		return 0, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if key := os.Getenv("WORMKEY_INTERNAL_API_KEY"); key != "" {
-		req.Header.Set("Authorization", "Bearer "+key)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return 0, err
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode, nil
+	return controlPlaneClient(controlPlaneURL).ValidateSession(sessionToken)
 }
 
 func randomSecret(n int) string {
@@ -443,7 +386,7 @@ func hydrateFromControlPlane(controlPlaneURL, slug string, tc *tunnelConn) {
 	}
 	tc.policyMu.Unlock()
 	tc.viewerMu.Lock()
-	for _, id := range sess.KickedViewerIds {
+	for _, id := range sess.KickedViewerIDs {
 		tc.kickedViewers[id] = struct{}{}
 	}
 	for _, viewer := range sess.ActiveViewers {
@@ -454,23 +397,9 @@ func hydrateFromControlPlane(controlPlaneURL, slug string, tc *tunnelConn) {
 }
 
 func postJSON(url string, body any) {
-	b, err := json.Marshal(body)
-	if err != nil {
-		return
-	}
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(b))
-	if err != nil {
-		return
-	}
-	req.Header.Set("Content-Type", "application/json")
-	if key := os.Getenv("WORMKEY_INTERNAL_API_KEY"); key != "" {
-		req.Header.Set("Authorization", "Bearer "+key)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
+	baseURL := strings.Split(url, "/internal/")[0]
+	path := strings.TrimPrefix(url, baseURL)
+	_ = controlPlaneClient(baseURL).Post(path, body)
 }
 
 func syncPolicy(controlPlaneURL, slug string, policy tunnelPolicy) {
@@ -593,7 +522,7 @@ func main() {
 		}
 		base := strings.TrimSuffix(getEnv("WORMKEY_PUBLIC_BASE_URL", getEnv("WORMKEY_PUBLIC_BASE", "http://localhost:3002")), "/")
 		publicUrl := base + "/s/" + slug
-		ownerUrl := sess.OwnerUrl
+		ownerUrl := sess.OwnerURL
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]string{"publicUrl": publicUrl, "ownerUrl": ownerUrl})
 	})
@@ -813,7 +742,26 @@ func handleTunnel(tunnels *sync.Map, closedSlugs *sync.Map, controlPlaneURL stri
 			}
 		}
 		tunnels.Store(slug, tc)
+		monitorDone := make(chan struct{})
+		go func() {
+			ticker := time.NewTicker(5 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-monitorDone:
+					return
+				case <-ticker.C:
+					session, status, fetchErr := fetchSession(controlPlaneURL, slug)
+					if fetchErr == nil && status == http.StatusOK && session.Closed {
+						closedSlugs.Store(slug, struct{}{})
+						_ = conn.Close()
+						return
+					}
+				}
+			}
+		}()
 		defer func() {
+			close(monitorDone)
 			if current, ok := tunnels.Load(slug); ok {
 				if active, okActive := current.(*tunnelConn); okActive && active == tc {
 					tunnels.Delete(slug)
@@ -831,13 +779,11 @@ func handleTunnel(tunnels *sync.Map, closedSlugs *sync.Map, controlPlaneURL stri
 				continue
 			}
 			ftype := data[0]
-			streamID := binary.BigEndian.Uint32(data[1:5])
+			streamID := protocol.StreamID(data)
 			payload := data[5:]
 			switch ftype {
 			case FramePing:
-				pong := make([]byte, 5)
-				pong[0] = FramePong
-				binary.BigEndian.PutUint32(pong[1:5], ControlStreamID)
+				pong := protocol.Frame(FramePong, ControlStreamID, nil)
 				_ = tc.writeFrame(pong)
 			case FramePong:
 			case FramePause:
@@ -973,10 +919,7 @@ func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 		fmt.Fprintf(&buf, "%s %s HTTP/1.1\r\n", r.Method, r.URL.RequestURI())
 		r.Header.Write(&buf)
 		buf.WriteString("\r\n")
-		frame := make([]byte, 5+buf.Len())
-		frame[0] = FrameOpenStream
-		binary.BigEndian.PutUint32(frame[1:5], streamID)
-		copy(frame[5:], buf.Bytes())
+		frame := protocol.Frame(FrameOpenStream, streamID, buf.Bytes())
 		if err := tc.writeFrame(frame); err != nil {
 			writeTunnelWriteFailed(w)
 			return
@@ -994,9 +937,7 @@ func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 		tc.activeStreams.Add(1)
 		tc.streams.Store(streamID, &streamCtx{w: respW, done: done, flusher: flusher, setCookie: setCookie})
 		sendStreamEnd := func() {
-			f := make([]byte, 5)
-			f[0] = FrameStreamEnd
-			binary.BigEndian.PutUint32(f[1:5], streamID)
+			f := protocol.Frame(FrameStreamEnd, streamID, nil)
 			tc.writeFrame(f)
 		}
 		if r.Body != nil && r.ContentLength != 0 {
@@ -1007,10 +948,7 @@ func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 					chunk := make([]byte, 32*1024)
 					n, err := br.Read(chunk)
 					if n > 0 {
-						f := make([]byte, 5+n)
-						f[0] = FrameStreamData
-						binary.BigEndian.PutUint32(f[1:5], streamID)
-						copy(f[5:], chunk[:n])
+						f := protocol.Frame(FrameStreamData, streamID, chunk[:n])
 						tc.writeFrame(f)
 					}
 					if err == io.EOF {
@@ -1028,6 +966,13 @@ func handleProxy(tunnels *sync.Map, controlPlaneURL string) http.HandlerFunc {
 			}
 			sendStreamEnd()
 		}
-		<-done
+		select {
+		case <-done:
+		case <-r.Context().Done():
+			if _, loaded := tc.streams.LoadAndDelete(streamID); loaded {
+				tc.activeStreams.Add(-1)
+				_ = tc.writeFrame(protocol.Frame(FrameStreamCancel, streamID, nil))
+			}
+		}
 	}
 }
